@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_NAME:=kmod-xt\_tls
+PKG_NAME:=kmod-xt_tls
 PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:https://github.com/Lochnair/xt\_tls.git
+PKG_SOURCE_URL:https://github.com/Lochnair/xt_tls.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=99a11843cdff137c83bad41dfffb36083c9c9377
@@ -24,13 +24,13 @@ PKG_LICENSE_FILES=LICENSE
 
 include $(INCLUDE_DIR)/package.mk
 
-define KernelPackage/xt\_tls
+define KernelPackage/xt_tls
 	SUBMENU:=Other modules
 	TITLE:=iptables module for filtering TLS connections
 	FILES:=$(PKG_BUILD_DIR)/xt_tls.ko
 endef
 
-define KernelPackage/xt\_tls/description
+define KernelPackage/xt_tls/description
 	A iptables module for filtering TLS connections.
 endef
 
@@ -45,4 +45,4 @@ define Build/Compile
 			modules
 endef
 
-$(eval $(call KernelPackage,xt\_tls))
+$(eval $(call KernelPackage,xt_tls))
