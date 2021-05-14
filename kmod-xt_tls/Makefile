@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_NAME:=kmod-xt_tls
+PKG_NAME:=kmod-xt\_tls
 PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
@@ -24,13 +24,13 @@ PKG_LICENSE_FILES=LICENSE
 
 include $(INCLUDE_DIR)/package.mk
 
-define KernelPackage/xt_tls
+define KernelPackage/xt\_tls
 	SUBMENU:=Other modules
 	TITLE:=iptables module for filtering TLS connections
 	FILES:=$(PKG_BUILD_DIR)/xt_tls.ko
 endef
 
-define KernelPackage/xt_tls/description
+define KernelPackage/xt\_tls/description
 	A iptables module for filtering TLS connections.
 endef
 
@@ -45,4 +45,4 @@ define Build/Compile
 			modules
 endef
 
-$(eval $(call KernelPackage,xt_tls))
+$(eval $(call KernelPackage,xt\_tls))
