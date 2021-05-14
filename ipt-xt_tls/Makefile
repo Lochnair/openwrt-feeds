@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 # Name, version and release number
 # The name and version of your package are used to define the variable to point to the build directory of your package: $(PKG_BUILD_DIR)
-PKG_NAME:=ipt-xt_tls
+PKG_NAME:=ipt-xt\_tls
 PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
@@ -19,14 +19,14 @@ PKG_LICENSE_FILES=LICENSE
 include $(INCLUDE_DIR)/package.mk
 
 # Package definition; instructs on how and where our package will appear in the overall configuration menu ('make menuconfig')
-define Package/ipt-xt_tls
+define Package/ipt-xt\_tls
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=xt_tls iptables library
+  TITLE:=xt\_tls iptables library
 endef
 
 # Package description; a more verbose description on what our package does
-define Package/ipt-xt_tls/description
+define Package/ipt-xt\_tls/description
   iptables module for filtering TLS connections
 endef
 
@@ -44,10 +44,10 @@ define Build/Compile
 endef
 
 # Package install instructions; create a directory inside the package to hold our executable, and then copy the executable we built previously into the folder
-define Package/ipt-xt_tls/install
+define Package/ipt-xt\_tls/install
         $(INSTALL_DIR) $(1)/usr/lib/xtables
         $(INSTALL_BIN) $(PKG_BUILD_DIR)/libxt_tls.so $(1)/usr/lib/xtables
 endef
 
 # This command is always the last, it uses the definitions and variables we give above in order to get the job done
-$(eval $(call BuildPackage,ipt-xt_tls))
+$(eval $(call BuildPackage,ipt-xt\_tls))
