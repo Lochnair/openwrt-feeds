@@ -22,7 +22,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/ipt-xt\_tls
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=xt\_tls iptables library
+  TITLE:=iptables library for filtering TLS connections
 endef
 
 # Package description; a more verbose description on what our package does
