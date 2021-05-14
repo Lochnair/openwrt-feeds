@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_NAME:=xt_tls
+PKG_NAME:=kmod-xt_tls
 PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
