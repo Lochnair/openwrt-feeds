@@ -27,7 +27,7 @@ include $(INCLUDE_DIR)/package.mk
 define KernelPackage/xt\_tls
 	SUBMENU:=Other modules
 	TITLE:=iptables module for filtering TLS connections
-	FILES:=$(PKG_BUILD_DIR)/xt_tls.ko
+	FILES:=$(PKG_BUILD_DIR)/xt\_tls.ko
 endef
 
 define KernelPackage/xt\_tls/description
