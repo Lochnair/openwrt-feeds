@@ -13,7 +13,7 @@ PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:https://github.com/Lochnair/xt_tls.git
+PKG_SOURCE_URL:https://github.com/Lochnair/xt\_tls.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=99a11843cdff137c83bad41dfffb36083c9c9377
