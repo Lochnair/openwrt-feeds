@@ -45,8 +45,7 @@ endef
 
 define Build/Compile
 ifeq ($(1), "kmod-xt_tls")
-	$(KERNEL_MAKE) M="$(PKG_BUILD_DIR)/src" \
-	modules
+	$(KERNEL_MAKE) M="$(PKG_BUILD_DIR)/src" modules
 else
 	$(call Build/Compile/Default,ipt)
 endif
