@@ -37,19 +37,14 @@ define KernelPackage/xt_tls
 	SUBMENU:=Other modules
 	TITLE:=iptables module for filtering TLS connections
 	FILES:=$(PKG_BUILD_DIR)/src/xt_tls.ko
+	DEPENDS:=kmod-nf-ipt
 endef
 
 define KernelPackage/xt_tls/description
 	A iptables module for filtering TLS connections.
 endef
 
-define Build/Compile
-ifeq ($(1), "kmod-xt_tls")
-	$(KERNEL_MAKE) M="$(PKG_BUILD_DIR)/src" modules
-else
-	$(call Build/Compile/Default,ipt)
-endif
-endef
+MAKE_FLAGS += KDIR=$(LINUX_DIR) ARCH=$(LINUX_KARCH) M="$(PKG_BUILD_DIR)/src"
 
 # Package install instructions; create a directory inside the package to hold our executable, and then copy the executable we built previously into the folder
 define Package/ipt-xt_tls/install
