@@ -7,7 +7,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=lualanes-jit
+PKG_NAME:=luajit-lanes
 PKG_VERSION:=3.13.0
 PKG_RELEASE:=1
 
@@ -23,7 +23,7 @@ PKG_BUILD_DEPENDS:=lua/host
 
 include $(INCLUDE_DIR)/package.mk
 
-define Package/lualanes-jit
+define Package/luajit-lanes
 	SUBMENU:=Lua
 	SECTION:=lang
 	CATEGORY:=Languages
@@ -33,7 +33,7 @@ define Package/lualanes-jit
 	MAINTAINER:=Vladimir Malyutin <first-leon@yandex.ru>
 endef
 
-define Package/lualanes-jit/description
+define Package/luajit-lanes/description
  Lua Lanes is a Lua extension library providing the possibility to run
 multiple Lua states in parallel. It is intended to be used for optimizing
 performance on multicore CPU's and to study ways to make Lua programs
@@ -55,11 +55,11 @@ define Build/Compile
         OPT_FLAGS="$(TARGET_CFLAGS) -Dpthread_yield=sched_yield"
 endef
 
-define Package/lualanes-jit/install
+define Package/luajit-lanes/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/lanes.lua $(1)/usr/lib/lua/
 	$(INSTALL_DIR) $(1)/usr/lib/lua/lanes
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/src/lanes/core.so $(1)/usr/lib/lua/lanes/core.so
 endef
 
-$(eval $(call BuildPackage,lualanes-jit))
+$(eval $(call BuildPackage,luajit-lanes))
