@@ -19,7 +19,7 @@ define Package/pping
   CATEGORY:=Utilities
   TITLE:=pping
   URL:=https://github.com/pollere/pping
-  DEPENDS:=+libc +libm +libtins +libpcap
+  DEPENDS:=+libtins
 endef
 
 define Package/pping/description
@@ -27,7 +27,7 @@ define Package/pping/description
 endef
 
 define Build/Compile
-	LIBTINS=$(STAGING_DIR) $(MAKE) -C $(PKG_BUILD_DIR)
+	$(TARGET_CXX) -o $(PKG_BUILD_DIR)/pping -ltins -lpcap $(PKG_BUILD_DIR)/pping.cpp
 endef
 
 define Package/pping/install
