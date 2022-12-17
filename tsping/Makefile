@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/tsping
-PKG_SOURCE_VERSION:=83e1b1ee057bf98a08f6b835279f6dadcd67b42b
+PKG_SOURCE_VERSION:=0ba4b5d2417e2b7257ac9cbe31b1bc055e4c44b6
 
 PKG_MAINTAINER:=Nils Andreas Svee <contact@lochnair.net>
 PKG_LICENSE:=BSD-3-Clause
