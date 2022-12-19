@@ -19,9 +19,6 @@ PKG_BUILD_DEPENDS:=!USE_GLIBC:argp-standalone
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/meson.mk
 
-MESON_ARGS += \
-	$(if $(USE_GLIBC), -Dargp_standalone=false, -Dargp_standalone=true)
-
 define Package/tsping
   SECTION:=utils
   CATEGORY:=Utilities
