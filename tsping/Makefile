@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=tsping
-PKG_VERSION:=0.2.1
+PKG_VERSION:=0.2.2
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/tsping
-PKG_SOURCE_VERSION:=7dcb6c0b678f6c74840d6ac3a347cbbb067dc322
+PKG_SOURCE_VERSION:=1d63d97e3f3a6463c414f0b733968da5c604c790
 
 PKG_MAINTAINER:=Nils Andreas Svee <contact@lochnair.net>
 PKG_LICENSE:=BSD-3-Clause
