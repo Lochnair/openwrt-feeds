@@ -17,7 +17,7 @@ PKG_LICENSE:=MPL
 
 PKG_BUILD_DEPENDS:=rust/host
 
-include ../../lang/rust/rust-package.mk
+include ../../packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
 
 define Build/Compile
