@@ -37,7 +37,7 @@ define Package/sqm-autorate-rust/description
 endef
 
 define Package/sqm-autorate-rust/install
-	$(INSTALL_DIR) $(1)/bin
+	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/stripped/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
 endef
 
