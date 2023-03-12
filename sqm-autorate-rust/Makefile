@@ -10,7 +10,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/sqm-autorate-rust
-PKG_SOURCE_VERSION:=f7c2464a80bfbec30b0f070201b73b43276c2fb6
+PKG_SOURCE_VERSION:=4a1368cd7ae4ad9960fcdf4a2f42672f49863fad
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=MPL
