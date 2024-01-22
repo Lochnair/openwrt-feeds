@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luajit-lanes
-PKG_VERSION:=3.13.0
+PKG_VERSION:=3.16.2
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/LuaLanes/lanes/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=53a17d7ee11f17ca0543ae5aa640208dcb62d37862a0d0ea450455fae12c8ff1
+PKG_HASH:=3af9e599877b7d41dea03a0180ad48c77ed324564ecb08a6e3b8d63612944194
 PKG_BUILD_DIR:=$(BUILD_DIR)/lanes-$(PKG_VERSION)
 
 PKG_INSTALL:=1
@@ -51,8 +51,7 @@ define Build/Compile
         CC="$(TARGET_CC)" \
         LUA="$(STAGING_DIR_HOSTPKG)/bin/luajit" \
 	LUA_FLAGS="-I$(STAGING_DIR)/usr/include -I$(STAGING_DIR)/usr/include/luajit-2.1/"
-	LUA_LIBS=-lluajit-5.1 \
-        OPT_FLAGS="$(TARGET_CFLAGS) -Dpthread_yield=sched_yield"
+	LUA_LIBS=-lluajit-5.1
 endef
 
 define Package/luajit-lanes/install
