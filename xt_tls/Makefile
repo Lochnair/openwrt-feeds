@@ -4,15 +4,14 @@ include $(INCLUDE_DIR)/kernel.mk
 # Name, version and release number
 # The name and version of your package are used to define the variable to point to the build directory of your package: $(PKG_BUILD_DIR)
 PKG_NAME:=xt_tls
-PKG_VERSION:=0.3.1
+PKG_VERSION:=0.3.5
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_MIRROR_HASH:=d79d9f33ceab54dcc50cbab7c92434a4eb106c0488d6f05a062a311e7b02aba9
 PKG_SOURCE_URL:=https://github.com/Lochnair/xt_tls.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=99a11843cdff137c83bad41dfffb36083c9c9377
+PKG_SOURCE_VERSION:=692e50651ea024dc6ceddc764ae3391e93a99b67
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE=GPL-3.0
@@ -49,7 +48,7 @@ MAKE_FLAGS += KDIR=$(LINUX_DIR) ARCH=$(LINUX_KARCH) M="$(PKG_BUILD_DIR)/src"
 # Package install instructions; create a directory inside the package to hold our executable, and then copy the executable we built previously into the folder
 define Package/ipt-xt_tls/install
 	$(INSTALL_DIR) $(1)/usr/lib/xtables
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ipt/libxt_tls.so $(1)/usr/lib/xtables
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ipt/libxt_tls.so $(1)/usr/lib/iptables
 endef
 
 # This command is always the last, it uses the definitions and variables we give above in order to get the job done
