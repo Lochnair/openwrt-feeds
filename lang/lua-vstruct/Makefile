@@ -22,6 +22,7 @@ define Package/lua-vstruct
   CATEGORY:=Languages
   TITLE:=A Lua library for packing and unpacking binary data
   URL:=https://github.com/ToxicFrog/vstruct
+  PKGARCH:=all
 endef
 
 define Package/lua-vstruct/desription
