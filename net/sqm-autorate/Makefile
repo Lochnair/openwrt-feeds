@@ -46,7 +46,7 @@ define Build/Compile
 endef
 
 define Package/sqm-autorate/install
-	$(INSTALL_DIR) $(1)/usr/lib/sqm-autorate
+	$(INSTALL_DIR) $(1)/etc/config $(1)/etc/init.d $(1)/usr/lib/sqm-autorate
 	$(INSTALL_DATA) \
 		$(PKG_BUILD_DIR)/lib/*.csv \
 		$(1)/usr/lib/sqm-autorate/
