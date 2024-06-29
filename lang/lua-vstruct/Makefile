@@ -12,7 +12,7 @@ PKG_MAINTAINER:=Nils Andreas Svee <contact@lochnair.net>
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=COPYING
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION_TAG)
+PKG_BUILD_DIR:=$(BUILD_DIR)/vstruct-$(PKG_VERSION_TAG)
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -25,17 +25,27 @@ define Package/lua-vstruct
 endef
 
 define Package/lua-vstruct/desription
-	A Lua library for packing and unpacking binary data,
+  A Lua library for packing and unpacking binary data,
   supporting arbitrary (byte-aligned) widths, named fields, and repetition.
 endef
 
 define Build/Compile
-	echo "Nothing to compile, pure lua package"
 endef
 
+# Note: I left out the test files
 define Package/lua-vstruct/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/vstruct
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/*.lua $(1)/usr/lib/lua/vstruct/
+	$(INSTALL_DATA) \
+		$(PKG_BUILD_DIR)/*.lua \
+		$(1)/usr/lib/lua/vstruct/
+	$(INSTALL_DIR) $(1)/usr/lib/lua/vstruct/ast
+	$(INSTALL_DATA) \
+		$(PKG_BUILD_DIR)/ast/*.lua \
+		$(1)/usr/lib/lua/vstruct/ast/
+	$(INSTALL_DIR) $(1)/usr/lib/lua/vstruct/io
+	$(INSTALL_DATA) \
+		$(PKG_BUILD_DIR)/io/*.lua \
+		$(1)/usr/lib/lua/vstruct/io/
 endef
 
 $(eval $(call BuildPackage,lua-vstruct))
