@@ -12,7 +12,7 @@ PKG_MAINTAINER:=Nils Andreas Svee <contact@lochnair.net>
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=COPYING
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/vstruct-$(PKG_VERSION_TAG)
+PKG_BUILD_DIR:=$(BUILD_DIR)/vstruct-$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
