@@ -47,13 +47,13 @@ endef
 
 define Package/sqm-autorate/install
 	$(INSTALL_DIR) $(1)/usr/lib/sqm-autorate
- 	$(INSTALL_DATA) \
+	$(INSTALL_DATA) \
 		$(PKG_BUILD_DIR)/lib/*.csv \
 		$(1)/usr/lib/sqm-autorate/
- 	$(INSTALL_DATA) \
+	$(INSTALL_DATA) \
 		$(PKG_BUILD_DIR)/lib/*.lua \
 		$(1)/usr/lib/sqm-autorate/
- 	$(INSTALL_BIN) \
+	$(INSTALL_BIN) \
 		$(PKG_BUILD_DIR)/lib/*.sh \
 		$(1)/usr/lib/sqm-autorate/
 	$(INSTALL_BIN) \
