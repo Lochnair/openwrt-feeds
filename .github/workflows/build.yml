@@ -1,0 +1,93 @@
+name: build
+run-name: Build openwrt packages
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        openwrt: ['23.05.6', '24.10.4', 'snapshot']
+        platform:
+          - 'x86/64'
+          - 'octeon/generic'
+          - 'mediatek/filogic'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "./feed"
+      - name: Figure out SDK URL
+        id: sdk
+        run: |
+          set -eu
+
+          OPENWRT="${{ matrix.openwrt }}"
+          PLATFORM="${{ matrix.platform }}"
+
+          TARGET="${PLATFORM%%/*}"
+          SUBTARGET="${PLATFORM##*/}"
+
+          echo "OpenWrt: $OPENWRT"
+          echo "Target:  $TARGET"
+          echo "Subtgt:  $SUBTARGET"
+
+          if [ "$OPENWRT" = "snapshot" ]; then
+            BASE="https://downloads.openwrt.org/snapshots/targets/${TARGET}/${SUBTARGET}"
+          else
+            BASE="https://downloads.openwrt.org/releases/${OPENWRT}/targets/${TARGET}/${SUBTARGET}"
+          fi
+
+          echo "Base path: $BASE"
+
+          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" | awk '{print $2}' | grep 'openwrt-sdk' | head -n1)"
+
+          if [ -z "$SDK_FILE" ]; then
+            echo "No SDK file found in ${BASE}/sha256sums"
+            exit 1
+          fi
+
+          SDK_URL="${BASE}/${SDK_FILE}"
+          echo "Using SDK: $SDK_URL"
+
+          echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
+          echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
+      - name: Determine decompression flag
+        id: decompression
+        run: |
+          url="${{ matrix.sdk }}"
+          if [[ "$url" == *.tar.xz ]]; then
+            echo "decompress_flag=--xz" >> $GITHUB_ENV
+          elif [[ "$url" == *.tar.zst ]]; then
+            echo "decompress_flag=--zstd" >> $GITHUB_ENV
+          else
+            echo "Unknown file extension: $url" >&2
+            exit 1
+          fi
+      - name: Download SDK
+        run: |
+            mkdir -p ./sdk
+            wget -O- "${{ matrix.sdk }}" | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
+      - name: Create feeds.conf
+        run: |
+            cp -v feeds.conf.default feeds.conf
+            echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
+        working-directory: ./sdk
+      - name: Update and install feeds
+        run: |
+            ./scripts/feeds update -a
+            ./scripts/feeds install -a
+        working-directory: ./sdk
+      - name: Create default config
+        run: make defconfig
+        working-directory: ./sdk
+      - name: Build tailscale
+        run: make package/tailscale/compile
+        working-directory: ./sdk
+      - name: Archive packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'packages-${{ matrix.openwrt }}'
+          path: |
+            ./sdk/bin/packages/**/tailscale/*.apk
+            ./sdk/bin/packages/**/tailscale/*.ipk
