@@ -40,7 +40,7 @@ jobs:
 
           echo "Base path: $BASE"
 
-          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" | awk '{print $2}' | grep 'openwrt-sdk' | head -n1)"
+          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" | awk '{print $2}' | grep 'openwrt-sdk' | head -n1 | tr -d '*')"
 
           if [ -z "$SDK_FILE" ]; then
             echo "No SDK file found in ${BASE}/sha256sums"
