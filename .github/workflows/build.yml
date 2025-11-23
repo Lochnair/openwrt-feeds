@@ -55,7 +55,7 @@ jobs:
       - name: Determine decompression flag
         id: decompression
         run: |
-          url="${{ matrix.sdk }}"
+          url="${{ steps.sdk.outputs.sdk_url }}"
           if [[ "$url" == *.tar.xz ]]; then
             echo "decompress_flag=--xz" >> $GITHUB_ENV
           elif [[ "$url" == *.tar.zst ]]; then
@@ -67,7 +67,7 @@ jobs:
       - name: Download SDK
         run: |
             mkdir -p ./sdk
-            wget -O- "${{ matrix.sdk }}" | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
+            wget -O- "${{ steps.sdk.outputs.sdk_url }}" | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
       - name: Create feeds.conf
         run: |
             cp -v feeds.conf.default feeds.conf
