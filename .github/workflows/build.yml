@@ -59,8 +59,20 @@ jobs:
           echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
           echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
 
+      - name: Cache OpenWrt SDK tree
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: ./sdk
+          key: >
+            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-${{ steps.sdk.outputs.sdk_file }}-${{ hashFiles('feed/**') }}
+          restore-keys: |
+            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-${{ steps.sdk.outputs.sdk_file }}-
+            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-
+
       - name: Determine decompression flag
         id: decompression
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           url="${{ steps.sdk.outputs.sdk_url }}"
           if [[ "$url" == *.tar.xz ]]; then
@@ -72,27 +84,12 @@ jobs:
             exit 1
           fi
 
-      - name: Download SDK
+      - name: Download & extract SDK when cache is cold
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           mkdir -p ./sdk
           wget -O- "${{ steps.sdk.outputs.sdk_url }}" \
             | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
-
-      # 🔹 Cache OpenWrt build dirs (dl + build_dir + staging_dir + tmp)
-      - name: Cache OpenWrt SDK build dirs
-        uses: actions/cache@v4
-        id: cache-openwrt
-        with:
-          path: |
-            ./sdk/dl
-            ./sdk/staging_dir
-            ./sdk/build_dir
-            ./sdk/tmp
-          key: >
-            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-${{ hashFiles('feed/**') }}
-          restore-keys: |
-            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-
-            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-
 
       - name: Create feeds.conf
         run: |
@@ -103,6 +100,7 @@ jobs:
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
+          # First install everything from lochnair, then the rest, so overrides win
           ./scripts/feeds install -p lochnair -a
           ./scripts/feeds install -a
         working-directory: ./sdk
@@ -118,7 +116,6 @@ jobs:
       - name: Archive packages
         uses: actions/upload-artifact@v4
         with:
-          # include platform so artifacts don't stomp each other
           name: 'packages-${{ matrix.openwrt }}-${{ matrix.platform }}'
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
