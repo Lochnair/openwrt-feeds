@@ -120,5 +120,5 @@ jobs:
           # include platform so artifacts don't stomp each other
           name: 'packages-${{ matrix.openwrt }}-${{ matrix.platform }}'
           path: |
-            ./sdk/bin/packages/**/packages/*.apk
-            ./sdk/bin/packages/**/packages/*.ipk
+            ./sdk/bin/packages/**/lochnair/*.apk
+            ./sdk/bin/packages/**/lochnair/*.ipk
