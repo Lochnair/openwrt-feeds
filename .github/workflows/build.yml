@@ -13,10 +13,12 @@ jobs:
           - 'x86/64'
           - 'octeon/generic'
           - 'mediatek/filogic'
+
     steps:
       - uses: actions/checkout@v4
         with:
           path: "./feed"
+
       - name: Figure out SDK URL
         id: sdk
         run: |
@@ -40,7 +42,11 @@ jobs:
 
           echo "Base path: $BASE"
 
-          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" | awk '{print $2}' | grep 'openwrt-sdk' | head -n1 | tr -d '*')"
+          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" \
+            | awk '{print $2}' \
+            | grep 'openwrt-sdk' \
+            | head -n1 \
+            | tr -d '*')"
 
           if [ -z "$SDK_FILE" ]; then
             echo "No SDK file found in ${BASE}/sha256sums"
@@ -52,6 +58,7 @@ jobs:
 
           echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
           echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
+
       - name: Determine decompression flag
         id: decompression
         run: |
@@ -64,30 +71,54 @@ jobs:
             echo "Unknown file extension: $url" >&2
             exit 1
           fi
+
       - name: Download SDK
         run: |
-            mkdir -p ./sdk
-            wget -O- "${{ steps.sdk.outputs.sdk_url }}" | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
+          mkdir -p ./sdk
+          wget -O- "${{ steps.sdk.outputs.sdk_url }}" \
+            | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
+
+      # 🔹 Cache OpenWrt build dirs (dl + build_dir + staging_dir + tmp)
+      - name: Cache OpenWrt SDK build dirs
+        uses: actions/cache@v4
+        id: cache-openwrt
+        with:
+          path: |
+            ./sdk/dl
+            ./sdk/staging_dir
+            ./sdk/build_dir
+            ./sdk/tmp
+          key: >
+            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-${{ hashFiles('feed/**') }}
+          restore-keys: |
+            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-
+            openwrt-${{ runner.os }}-${{ matrix.openwrt }}-
+
       - name: Create feeds.conf
         run: |
-            cp -v feeds.conf.default feeds.conf
-            echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
+          cp -v feeds.conf.default feeds.conf
+          echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
         working-directory: ./sdk
+
       - name: Update and install feeds
         run: |
-            ./scripts/feeds update -a
-            ./scripts/feeds install -a
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
         working-directory: ./sdk
+
       - name: Create default config
         run: make defconfig
         working-directory: ./sdk
+
       - name: Build tailscale
         run: make package/tailscale/compile
         working-directory: ./sdk
+
       - name: Archive packages
         uses: actions/upload-artifact@v4
         with:
-          name: 'packages-${{ matrix.openwrt }}'
+          # include platform so artifacts don't stomp each other
+          name: 'packages-${{ matrix.openwrt }}-${{ matrix.platform }}'
           path: |
-            ./sdk/bin/packages/**/tailscale/*.apk
-            ./sdk/bin/packages/**/tailscale/*.ipk
+            ./sdk/bin/packages/**/packages/*.apk
+            ./sdk/bin/packages/**/packages/*.ipk
