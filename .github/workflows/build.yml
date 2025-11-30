@@ -113,10 +113,19 @@ jobs:
         run: make package/tailscale/compile
         working-directory: ./sdk
 
+      - name: Compute safe platform name
+        id: platform_name
+        run: |
+          PLATFORM="${{ matrix.platform }}"
+          # Replace / with - for artifact naming
+          SAFE_PLATFORM="${PLATFORM//\//-}"
+          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
+
+
       - name: Archive packages
         uses: actions/upload-artifact@v4
         with:
-          name: 'packages-${{ matrix.openwrt }}-${{ matrix.platform }}'
+          name: 'packages-${{ matrix.openwrt }}-${{ steps.platform_name.outputs.safe_platform }}'
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
             ./sdk/bin/packages/**/lochnair/*.ipk
