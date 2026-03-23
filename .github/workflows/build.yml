@@ -106,10 +106,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ./sdk
-          key: openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-${{ steps.sdk.outputs.sdk_file }}-${{ hashFiles('feed/**') }}
+          key: sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-${{ github.sha }}
           restore-keys: |
-            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-${{ steps.sdk.outputs.sdk_file }}-
-            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-
+            sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-
 
       - name: Determine decompression flag
         id: decompression
@@ -221,15 +220,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ./sdk
-          key: openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-${{ steps.sdk.outputs.sdk_file }}-${{ hashFiles('feed/**') }}
+          key: sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-${{ github.sha }}
           restore-keys: |
-            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-${{ steps.sdk.outputs.sdk_file }}-
-            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}-
+            sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-
 
       - name: Debug Cache Status
         run: |
           echo "Cache Hit: ${{ steps.cache-sdk.outputs.cache-hit }}"
-          echo "Key Hash: ${{ hashFiles('feed/**') }}"
+          echo "Key Hash: ${{ github.sha }}"
           if [ "${{ steps.cache-sdk.outputs.cache-hit }}" != "true" ]; then
             echo "::warning::Cache miss on exact key. Attempting to restore via prefix."
           fi
