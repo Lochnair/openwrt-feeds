@@ -3,12 +3,35 @@ run-name: Build openwrt packages
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      openwrt_versions: ${{ steps.set-matrix.outputs.versions }}
+    steps:
+      - name: Fetch OpenWrt versions
+        id: set-matrix
+        run: |
+          VERSIONS_JSON=$(curl -sL https://downloads.openwrt.org/.versions.json)
+          STABLE=$(echo "$VERSIONS_JSON" | jq -r '.stable_version // empty')
+          OLDSTABLE=$(echo "$VERSIONS_JSON" | jq -r '.oldstable_version // empty')
+          UPCOMING=$(echo "$VERSIONS_JSON" | jq -r '.upcoming_version // empty')
+          
+          VERSIONS=()
+          [ -n "$STABLE" ] && VERSIONS+=("\"$STABLE\"")
+          [ -n "$OLDSTABLE" ] && VERSIONS+=("\"$OLDSTABLE\"")
+          [ -n "$UPCOMING" ] && VERSIONS+=("\"$UPCOMING\"")
+          
+          MATRIX_JSON="[$(IFS=,; echo "${VERSIONS[*]}")]"
+          echo "versions=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
   build:
+    needs: generate-matrix
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        openwrt: ['23.05.6', '24.10.5', '25.12.1']
+        openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
         platform:
           - 'x86/64'
           - 'octeon/generic'
@@ -19,13 +42,17 @@ jobs:
         with:
           path: "./feed"
 
-      - name: Figure out SDK URL
+      - name: Figure out SDK URL and safe platform
         id: sdk
         run: |
           set -eu
 
           OPENWRT="${{ matrix.openwrt }}"
           PLATFORM="${{ matrix.platform }}"
+
+          # Replace / with - for artifact naming
+          SAFE_PLATFORM="${PLATFORM//\//-}"
+          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
 
           TARGET="${PLATFORM%%/*}"
           SUBTARGET="${PLATFORM##*/}"
@@ -109,27 +136,27 @@ jobs:
         run: make defconfig
         working-directory: ./sdk
 
-      - name: Build tailscale
-        run: make package/tailscale/compile
-        working-directory: ./sdk
-
-      - name: Build lualanes
-        run: make package/lualanes/compile
-        working-directory: ./sdk
-
-      - name: Compute safe platform name
-        id: platform_name
+      - name: Build all packages in feed
         run: |
-          PLATFORM="${{ matrix.platform }}"
-          # Replace / with - for artifact naming
-          SAFE_PLATFORM="${PLATFORM//\//-}"
-          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
-
+          FAILED=0
+          for PKG in $(ls package/feeds/lochnair/); do
+            echo "::group::Building $PKG"
+            if ! make "package/$PKG/compile"; then
+              echo "::error::Failed to build $PKG"
+              FAILED=1
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$FAILED" -ne 0 ]; then
+            exit 1
+          fi
+        working-directory: ./sdk
 
       - name: Archive packages
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 'packages-${{ matrix.openwrt }}-${{ steps.platform_name.outputs.safe_platform }}'
+          name: 'packages-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
             ./sdk/bin/packages/**/lochnair/*.ipk
