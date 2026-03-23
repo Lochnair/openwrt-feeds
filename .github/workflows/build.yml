@@ -235,9 +235,12 @@ jobs:
           fi
 
       - name: Determine decompression flag
-        id: decompression
         if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
+          if [ -d "sdk" ]; then
+            echo "SDK restored via partial match. Skipping download."
+            exit 0
+          fi
           url="${{ steps.sdk.outputs.sdk_url }}"
           if [[ "$url" == *.tar.xz ]]; then
             echo "decompress_flag=--xz" >> $GITHUB_ENV
@@ -251,6 +254,7 @@ jobs:
       - name: Download & extract SDK when cache is cold
         if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
+          if [ -d "sdk" ]; then exit 0; fi
           mkdir -p ./sdk
           wget -O- "${{ steps.sdk.outputs.sdk_url }}" \
             | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
@@ -258,6 +262,7 @@ jobs:
       - name: Create feeds.conf
         if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
+          if [ -f "sdk/feeds.conf" ]; then exit 0; fi
           cp -v feeds.conf.default feeds.conf
           echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
         working-directory: ./sdk
@@ -265,6 +270,7 @@ jobs:
       - name: Update and install feeds
         if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
+          if [ -d "sdk/feeds/lochnair" ]; then exit 0; fi
           ./scripts/feeds update -a
           # First install everything from lochnair, then the rest, so overrides win
           ./scripts/feeds install -p lochnair -a
@@ -273,7 +279,9 @@ jobs:
 
       - name: Create default config
         if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: make defconfig
+        run: |
+          if [ -f "sdk/.config" ]; then exit 0; fi
+          make defconfig
         working-directory: ./sdk
 
       - name: Build targeted package
