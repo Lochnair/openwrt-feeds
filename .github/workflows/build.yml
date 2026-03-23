@@ -7,7 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       openwrt_versions: ${{ steps.set-matrix.outputs.versions }}
+      packages: ${{ steps.set-packages.outputs.packages }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "./feed"
+
       - name: Fetch OpenWrt versions
         id: set-matrix
         run: |
@@ -24,10 +29,20 @@ jobs:
           MATRIX_JSON="[$(IFS=,; echo "${VERSIONS[*]}")]"
           echo "versions=$MATRIX_JSON" >> $GITHUB_OUTPUT
 
-  build:
+      - name: Figure out Packages
+        id: set-packages
+        run: |
+          PACKAGES=()
+          for mk in $(find feed -mindepth 2 -maxdepth 3 -name Makefile); do
+            pkg=$(basename $(dirname "$mk"))
+            PACKAGES+=("\"$pkg\"")
+          done
+          PKGS_JSON="[$(IFS=,; echo "${PACKAGES[*]}")]"
+          echo "packages=$PKGS_JSON" >> $GITHUB_OUTPUT
+
+  prepare-sdk:
     needs: generate-matrix
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -119,12 +134,14 @@ jobs:
             | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
 
       - name: Create feeds.conf
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           cp -v feeds.conf.default feeds.conf
           echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
         working-directory: ./sdk
 
       - name: Update and install feeds
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           ./scripts/feeds update -a
           # First install everything from lochnair, then the rest, so overrides win
@@ -133,38 +150,96 @@ jobs:
         working-directory: ./sdk
 
       - name: Create default config
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: make defconfig
         working-directory: ./sdk
 
-      - name: Build all packages in feed
-        run: |
-          echo "### Package Build Results :package:" >> $GITHUB_STEP_SUMMARY
-          echo "| Package | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
 
-          FAILED=0
-          for PKG in $(ls package/feeds/lochnair/); do
-            echo "::group::Building $PKG"
-            if make "package/$PKG/compile"; then
-              echo "| \`$PKG\` | :white_check_mark: Success |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "::error::Failed to build $PKG"
-              echo "| \`$PKG\` | :x: Failed |" >> $GITHUB_STEP_SUMMARY
-              FAILED=1
-            fi
-            echo "::endgroup::"
-          done
-          
-          if [ "$FAILED" -ne 0 ]; then
+  build:
+    needs: [generate-matrix, prepare-sdk]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
+        platform:
+          - 'x86/64'
+          - 'octeon/generic'
+          - 'mediatek/filogic'
+        package: ${{ fromJson(needs.generate-matrix.outputs.packages) }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "./feed"
+
+      - name: Figure out SDK URL and safe platform
+        id: sdk
+        run: |
+          set -eu
+
+          OPENWRT="${{ matrix.openwrt }}"
+          PLATFORM="${{ matrix.platform }}"
+
+          # Replace / with - for artifact naming
+          SAFE_PLATFORM="${PLATFORM//\//-}"
+          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
+
+          TARGET="${PLATFORM%%/*}"
+          SUBTARGET="${PLATFORM##*/}"
+
+          echo "OpenWrt: $OPENWRT"
+          echo "Target:  $TARGET"
+          echo "Subtgt:  $SUBTARGET"
+
+          if [ "$OPENWRT" = "snapshot" ]; then
+            BASE="https://downloads.openwrt.org/snapshots/targets/${TARGET}/${SUBTARGET}"
+          else
+            BASE="https://downloads.openwrt.org/releases/${OPENWRT}/targets/${TARGET}/${SUBTARGET}"
+          fi
+
+          echo "Base path: $BASE"
+
+          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" \
+            | awk '{print $2}' \
+            | grep 'openwrt-sdk' \
+            | head -n1 \
+            | tr -d '*')"
+
+          if [ -z "$SDK_FILE" ]; then
+            echo "No SDK file found in ${BASE}/sha256sums"
             exit 1
           fi
+
+          SDK_URL="${BASE}/${SDK_FILE}"
+          echo "Using SDK: $SDK_URL"
+
+          echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
+          echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache OpenWrt SDK tree
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: ./sdk
+          key: >
+            openwrt-sdk-${{ runner.os }}-${{ matrix.openwrt }}-${{ matrix.platform }}-${{ steps.sdk.outputs.sdk_file }}-${{ hashFiles('feed/**') }}
+
+      - name: Assert prepared cache was recovered
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          echo "::error::Critical failure: prepare-sdk job should have seeded the cache but cache-hit was false."
+          exit 1
+
+      - name: Build targeted package
+        run: make package/${{ matrix.package }}/compile
         working-directory: ./sdk
 
       - name: Archive packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 'packages-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
+          name: 'package-${{ matrix.package }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
             ./sdk/bin/packages/**/lochnair/*.ipk
