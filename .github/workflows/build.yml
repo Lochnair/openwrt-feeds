@@ -138,15 +138,23 @@ jobs:
 
       - name: Build all packages in feed
         run: |
+          echo "### Package Build Results :package:" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+
           FAILED=0
           for PKG in $(ls package/feeds/lochnair/); do
             echo "::group::Building $PKG"
-            if ! make "package/$PKG/compile"; then
+            if make "package/$PKG/compile"; then
+              echo "| \`$PKG\` | :white_check_mark: Success |" >> $GITHUB_STEP_SUMMARY
+            else
               echo "::error::Failed to build $PKG"
+              echo "| \`$PKG\` | :x: Failed |" >> $GITHUB_STEP_SUMMARY
               FAILED=1
             fi
             echo "::endgroup::"
           done
+          
           if [ "$FAILED" -ne 0 ]; then
             exit 1
           fi
