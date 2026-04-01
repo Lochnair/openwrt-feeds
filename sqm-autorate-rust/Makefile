@@ -5,17 +5,18 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sqm-autorate-rust
-PKG_VERSION:=0.1
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/sqm-autorate-rust
-PKG_SOURCE_VERSION:=4a1368cd7ae4ad9960fcdf4a2f42672f49863fad
+PKG_SOURCE_VERSION:=8461d297880b667de47a2597fc561284db702d85
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=MPL
 
 PKG_BUILD_DEPENDS:=rust/host
+RUST_PKG_FEATURES:=uci
 
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
