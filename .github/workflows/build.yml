@@ -153,18 +153,54 @@ jobs:
         run: make defconfig
         working-directory: ./sdk
 
+      - name: Write SDK ready sentinel
+        if: success()
+        run: |
+          echo '{"openwrt":"${{ matrix.openwrt }}","platform":"${{ matrix.platform }}"}' \
+            > sentinel.json
+
+      - name: Upload SDK ready sentinel
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-ready-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}
+          path: sentinel.json
+
+
+  collect-matrix:
+    needs: [generate-matrix, prepare-sdk]
+    if: always() && needs.generate-matrix.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      combinations: ${{ steps.build.outputs.combinations }}
+    steps:
+      - name: Download SDK ready sentinels
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: sdk-ready-*
+          path: ./sentinels
+
+      - name: Build combinations matrix
+        id: build
+        run: |
+          combos="[]"
+          for d in ./sentinels/sdk-ready-*/; do
+            f="$d/sentinel.json"
+            [ -f "$f" ] || continue
+            combos=$(echo "$combos" | jq -c ". + [$(cat "$f")]")
+          done
+          echo "combinations=$combos" >> "$GITHUB_OUTPUT"
+
 
   build:
-    needs: [generate-matrix, prepare-sdk]
+    needs: [generate-matrix, collect-matrix]
+    if: needs.collect-matrix.outputs.combinations != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
-        platform:
-          - 'x86/64'
-          - 'octeon/generic'
-          - 'mediatek/filogic'
+        combination: ${{ fromJson(needs.collect-matrix.outputs.combinations) }}
         package: ${{ fromJson(needs.generate-matrix.outputs.packages) }}
 
     steps:
@@ -177,8 +213,8 @@ jobs:
         run: |
           set -eu
 
-          OPENWRT="${{ matrix.openwrt }}"
-          PLATFORM="${{ matrix.platform }}"
+          OPENWRT="${{ matrix.combination.openwrt }}"
+          PLATFORM="${{ matrix.combination.platform }}"
 
           # Replace / with - for artifact naming
           SAFE_PLATFORM="${PLATFORM//\//-}"
@@ -293,7 +329,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 'package-${{ matrix.package }}-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
+          name: 'package-${{ matrix.package }}-${{ matrix.combination.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
             ./sdk/bin/packages/**/lochnair/*.ipk
