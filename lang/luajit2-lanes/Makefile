@@ -7,58 +7,54 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=luajit-lanes
-PKG_VERSION:=3.16.2
+PKG_NAME:=luajit2-lanes
+PKG_VERSION:=3.17.2
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/LuaLanes/lanes/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=3af9e599877b7d41dea03a0180ad48c77ed324564ecb08a6e3b8d63612944194
+PKG_HASH:=854c1379cde584dd544a3cf098e0ec130248f3a102f65f1064974872e5b4821a
 PKG_BUILD_DIR:=$(BUILD_DIR)/lanes-$(PKG_VERSION)
 
-PKG_INSTALL:=1
-PKG_BUILD_PARALLEL:=1
+PKG_MAINTAINER:=Vladimir Malyutin <first-leon@yandex.ru>
+PKG_LICENSE:=BSD-3-Clause
+PKG_LICENSE_FILES:=COPYRIGHT
 
 PKG_BUILD_DEPENDS:=lua/host
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/cmake.mk
 
-define Package/luajit-lanes
+define Package/luajit2-lanes
 	SUBMENU:=Lua
 	SECTION:=lang
 	CATEGORY:=Languages
-	TITLE:=LuaLanes
+	TITLE:=LuaLanes (LuaJIT2)
 	URL:=http://lualanes.github.io/lanes/
-	DEPENDS:=+luajit +liblua +libpthread
-	MAINTAINER:=Vladimir Malyutin <first-leon@yandex.ru>
+	DEPENDS:=+luajit2 +libpthread
 endef
 
-define Package/luajit-lanes/description
- Lua Lanes is a Lua extension library providing the possibility to run
+define Package/luajit2-lanes/description
+Lua Lanes is a Lua extension library providing the possibility to run
 multiple Lua states in parallel. It is intended to be used for optimizing
 performance on multicore CPU's and to study ways to make Lua programs
 naturally parallel to begin with.
 
-Lanes is included into your software by the regular require "lanes" method.
-No C side programming is needed; all APIs are Lua side, and most existing
-extension modules should work seamlessly together with the multiple lanes.
+This package is built against LuaJIT2 and installs to /usr/lib/luajit2
+to avoid conflicts with the standard lualanes package.
 
 Lanes supports Lua 5.1, 5.2 and 5.3
 endef
 
-define Build/Compile
-	$(MAKE) -C $(PKG_BUILD_DIR) all \
-        CC="$(TARGET_CC)" \
-        LUA="$(STAGING_DIR_HOSTPKG)/bin/luajit" \
-	LUA_FLAGS="-I$(STAGING_DIR)/usr/include -I$(STAGING_DIR)/usr/include/luajit-2.1/"
-	LUA_LIBS=-lluajit-5.1
+CMAKE_OPTIONS += \
+	-DLUA_INCLUDE_DIR=$(STAGING_DIR)/usr/include/luajit-2.1 \
+	-DLUA_LIBRARY=$(STAGING_DIR)/usr/lib/libluajit-5.1.so
+
+define Package/luajit2-lanes/install
+	$(INSTALL_DIR) $(1)/usr/lib/luajit2
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/share/lua/lmod/lanes.lua $(1)/usr/lib/luajit2/
+	$(INSTALL_DIR) $(1)/usr/lib/luajit2/lanes
+	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/share/lua/cmod/core.so $(1)/usr/lib/luajit2/lanes/core.so
 endef
 
-define Package/luajit-lanes/install
-	$(INSTALL_DIR) $(1)/usr/lib/lua
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/lanes.lua $(1)/usr/lib/lua/
-	$(INSTALL_DIR) $(1)/usr/lib/lua/lanes
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/src/lanes/core.so $(1)/usr/lib/lua/lanes/core.so
-endef
-
-$(eval $(call BuildPackage,luajit-lanes))
+$(eval $(call BuildPackage,luajit2-lanes))
