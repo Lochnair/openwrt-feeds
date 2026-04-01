@@ -1,0 +1,188 @@
+#!/bin/sh /etc/rc.common
+
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Copyright (C) 2023 Nils Andreas Svee
+# Copyright (C) 2026 Fabio Rieker
+
+USE_PROCD=1
+START=99
+
+PROG=/usr/sbin/sqm-autorate-rust
+CONFIG_FILE="/etc/config/sqm-autorate"
+SAMPLE_FILE="/etc/config/sqm-autorate.sample"
+
+# FHS-Compliant Volatile Storage Paths
+LINK_FILE="/etc/sqm-autorate/reflectors-icmp.csv"
+RAM_FILE="/var/run/sqm-autorate/reflectors-icmp.csv"
+ROM_FILE="/usr/share/sqm-autorate/reflectors-icmp.csv"
+STATS_FILE="/var/run/sqm-autorate/sqm-autorate.json"
+
+CRON_FILE="/etc/crontabs/root"
+CRON_CMD="/usr/sbin/sqm-autorate-update"
+
+# 1. Environment Gatekeeper: Checks filesystem readiness and handles RAM sync
+validate_environment() {
+    # Recreate the FHS-compliant runtime directory in RAM
+    mkdir -p /var/run/sqm-autorate
+
+    # Check Config Existence (Hard fail - user action required)
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "=====================================================================" >&2
+        echo " FATAL ERROR: sqm-autorate configuration missing!" >&2
+        echo " " >&2
+        echo " You must create a configuration file before starting this service." >&2
+        echo " Run the following command to create a template, then edit it:" >&2
+        echo " cp $SAMPLE_FILE $CONFIG_FILE" >&2
+        echo "=====================================================================" >&2
+        
+        logger -t sqm-autorate "FATAL: Config file missing. Directed user to $SAMPLE_FILE."
+        return 1
+    fi
+
+    # Handle the RAM-based Reflector File
+    if [ ! -f "$RAM_FILE" ]; then
+        if [ -f "$ROM_FILE" ]; then
+            # Silent restoration - expected behavior after reboot
+            cp "$ROM_FILE" "$RAM_FILE"
+        else
+            echo " FATAL ERROR: ROM fallback missing at $ROM_FILE!" >&2
+            logger -t sqm-autorate "FATAL: Installation corrupt. $ROM_FILE is missing."
+            return 1
+        fi
+    elif [ ! -s "$RAM_FILE" ]; then
+        # File exists but is 0 bytes (Corruption case)
+        echo "=====================================================================" >&2
+        echo " WARNING: Reflector file in RAM is corrupt/empty!" >&2
+        echo " Automatically restoring from ROM fallback..." >&2
+        echo "=====================================================================" >&2
+        
+        logger -t sqm-autorate "WARNING: $RAM_FILE was empty. Restored from $ROM_FILE."
+        cp "$ROM_FILE" "$RAM_FILE"
+    fi
+
+    return 0
+}
+
+# 2. Config Gatekeeper: Ensures mandatory UCI values are present and interfaces exist
+# Config checks should be done by the binary via a check/validate flag, but till it supports it,
+# we will do it here, better than not having it
+validate_config() {
+    local dl_iface="$1"
+    local ul_iface="$2"
+    local dl_base="$3"
+    local ul_base="$4"
+    local dl_min="$5"
+    local ul_min="$6"
+
+    # 1. Check for missing mandatory variables
+    local missing=""
+    [ -z "$dl_iface" ] && missing="${missing} download_interface"
+    [ -z "$ul_iface" ] && missing="${missing} upload_interface"
+    [ -z "$dl_base" ]  && missing="${missing} download_base_kbits"
+    [ -z "$ul_base" ]  && missing="${missing} upload_base_kbits"
+
+    if [ -n "$missing" ]; then
+        echo "=====================================================================" >&2
+        echo " FATAL ERROR: Invalid sqm-autorate configuration!" >&2
+        echo " " >&2
+        echo " Missing mandatory options:$missing" >&2
+        echo "=====================================================================" >&2
+        logger -t sqm-autorate "FATAL: Configuration missing:$missing"
+        return 1
+    fi
+
+    # 2. Verify interfaces actually exist in the system kernel
+    for iface in "$dl_iface" "$ul_iface"; do
+        if [ ! -d "/sys/class/net/$iface" ]; then
+            echo " FATAL ERROR: Network interface '$iface' not found!" >&2
+            logger -t sqm-autorate "FATAL: Interface $iface does not exist."
+            return 1
+        fi
+    done
+
+    # 3. Validate that min_percent values are actually numbers (integers)
+    for val in "$dl_min" "$ul_min"; do
+        if ! [ "$val" -eq "$val" ] 2>/dev/null; then
+            echo " FATAL ERROR: min_percent values must be integers (got: $val)!" >&2
+            logger -t sqm-autorate "FATAL: Invalid min_percent value: $val"
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+manage_cron() {
+    local action="$1"
+    
+    # Always scrub existing entries first to prevent duplicates
+    sed -i '/sqm-autorate-update/d' "$CRON_FILE" 2>/dev/null
+    
+    if [ "$action" = "add" ]; then
+        # Generate a random minute (0-59) to spread out the load on the GitHub server.
+        # If $RANDOM is somehow missing in this specific OpenWrt build, fallback to 17.
+        local MIN=${RANDOM:-17}
+        MIN=$((MIN % 60))
+        
+        # Schedule between 4:00 AM and 4:59 AM
+        echo "$MIN 4 * * * $CRON_CMD >/dev/null 2>&1" >> "$CRON_FILE"
+    fi
+    
+    # Restart the busybox cron daemon so it sees the changes
+    /etc/init.d/cron restart
+}
+
+start_service() {
+    # Phase 1: Environment Readiness
+    validate_environment || return 1
+
+    # Phase 2: Load UCI Data
+    . /lib/functions.sh
+    config_load sqm-autorate
+    
+    local section="main"
+    config_get dl_iface "$section" download_interface
+    config_get ul_iface "$section" upload_interface
+    config_get dl_base  "$section" download_base_kbits
+    config_get ul_base  "$section" upload_base_kbits
+    config_get dl_min   "$section" download_min_percent "20"
+    config_get ul_min   "$section" upload_min_percent "20"
+#    config_get testing  "$section" testing "1"     # Currently not suported by the binarry
+    config_get log_lvl  "$section" log_level "info"
+
+    # Phase 3: Config Validation
+    # It would be better if the bin reads the conf file directly.
+    # And if we could call it with some check/validate flag so utility scripts like this
+    # can trigger manual checks
+    validate_config "$dl_iface" "$ul_iface" "$dl_base" "$ul_base" "$dl_min" "$ul_min" || return 1
+
+    # Add the Cron Job
+    manage_cron "add"
+
+    # Phase 4: Launch via Procd
+    procd_open_instance
+    procd_set_param command "$PROG"
+    
+#   SQMA_TESTING="$testing_bool" (Currently not supported by the binary)
+    procd_set_param env \
+        SQMA_DOWNLOAD_INTERFACE="$dl_iface" \
+        SQMA_UPLOAD_INTERFACE="$ul_iface" \
+        SQMA_DOWNLOAD_BASE_KBITS="$dl_base" \
+        SQMA_UPLOAD_BASE_KBITS="$ul_base" \
+        SQMA_DOWNLOAD_MIN_PERCENT="$dl_min" \
+        SQMA_UPLOAD_MIN_PERCENT="$ul_min" \
+        SQMA_STATS_FILE="$STATS_FILE" \
+        SQMA_LOG_LEVEL="$log_lvl" \
+        RUST_LOG="$log_lvl"
+
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param respawn
+    procd_close_instance
+}
+
+stop_service() {
+    # Clean up the cron job when the service is stopped
+    manage_cron "remove"
+}

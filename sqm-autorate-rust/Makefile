@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2023 Nils Andreas Svee
+# Copyright (C) 2026 Fabio Rieker
 
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sqm-autorate-rust
 PKG_VERSION:=0.1
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/sqm-autorate-rust
-PKG_SOURCE_VERSION:=4a1368cd7ae4ad9960fcdf4a2f42672f49863fad
+PKG_SOURCE_VERSION:=7d833ecff8b69c12fdcbe5da64c6cfc74b3dc720
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=MPL
@@ -25,11 +26,11 @@ define Build/Compile
 endef
 
 define Package/sqm-autorate-rust
-  SECTION:=utils
-  CATEGORY:=Utilities
-  TITLE:=sqm autorate (rust)
-  DEPENDS:=$(RUST_ARCH_DEPENDS)
-  URL:=https://github.com/Lochnair/sqm-autorate-rust
+	SECTION:=utils
+	CATEGORY:=Utilities
+	TITLE:=sqm autorate (rust)
+	DEPENDS:=$(RUST_ARCH_DEPENDS)
+	URL:=https://github.com/Lochnair/sqm-autorate-rust
 endef
 
 define Package/sqm-autorate-rust/description
@@ -37,8 +38,28 @@ define Package/sqm-autorate-rust/description
 endef
 
 define Package/sqm-autorate-rust/install
+	# 2. Fix the path for the new standard rust behaviour: Point to 'release' instead of 'stripped'
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/stripped/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
+
+	# Create necessary configuration and state directories
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_DIR) $(1)/etc/sqm-autorate
+	$(INSTALL_DIR) $(1)/usr/share/sqm-autorate
+
+	# Install init and update scripts (chmod 755)
+	$(INSTALL_BIN) ./files/sqm-autorate.init $(1)/etc/init.d/sqm-autorate
+	$(INSTALL_BIN) ./files/sqm-autorate-update.sh $(1)/usr/sbin/sqm-autorate-update
+
+	# Install sample config (chmod 600)
+	$(INSTALL_CONF) ./files/sqm-autorate.sample $(1)/etc/config/sqm-autorate.sample
+
+	# Install ROM fallback data (chmod 644)
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/reflectors-icmp.csv $(1)/usr/share/sqm-autorate/reflectors-icmp.csv
+
+	# Create the symlink the Rust binary expects (points to RAM)
+	ln -sf /var/run/sqm-autorate/reflectors-icmp.csv $(1)/etc/sqm-autorate/reflectors-icmp.csv
 endef
 
 $(eval $(call BuildPackage,sqm-autorate-rust))
