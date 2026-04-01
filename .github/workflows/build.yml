@@ -283,7 +283,9 @@ jobs:
         working-directory: ./sdk
 
       - name: Build targeted package
-        run: make package/${{ matrix.package }}/compile
+        run: |
+          make package/${{ matrix.package }}/compile || \
+          make package/${{ matrix.package }}/compile V=sc -j1
         working-directory: ./sdk
 
       - name: Archive packages
