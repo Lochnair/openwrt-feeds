@@ -1,0 +1,31 @@
+From c3826ea09db0afc2e8388d97469424888b9e0b09 Mon Sep 17 00:00:00 2001
+From: Nils Andreas Svee <me@lochnair.net>
+Date: Mon, 23 Mar 2026 21:01:24 +0700
+Subject: [PATCH] fix: make lua_toLane static inline
+
+---
+ src/lanes_private.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/lanes_private.h b/src/lanes_private.h
+index 8143216..833ad29 100644
+--- a/src/lanes_private.h
++++ b/src/lanes_private.h
+@@ -79,7 +79,7 @@ static DECLARE_CONST_UNIQUE_KEY( LANE_POINTER_REGKEY, 0xB3022205633743BC); // us
+ // 'Lane' are malloc/free'd and the handle only carries a pointer.
+ // This is not deep userdata since the handle's not portable among lanes.
+ //
+-inline Lane* lua_toLane(lua_State* L, int i_)
++static inline Lane* lua_toLane(lua_State* L, int i_)
+ {
+     return *(Lane**)(luaL_checkudata(L, i_, "Lane"));
+ }
+@@ -99,4 +99,4 @@ static inline Lane* get_lane_from_registry( lua_State* L)
+ int push_thread_status( lua_State* L, Lane* s);
+
+
+-#endif // __lanes_private_h__
+\ No newline at end of file
++#endif // __lanes_private_h__
+--
+2.50.1 (Apple Git-155)
