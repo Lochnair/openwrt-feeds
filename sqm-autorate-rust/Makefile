@@ -59,7 +59,7 @@ define Package/sqm-autorate-rust/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/reflectors-icmp.csv $(1)/usr/share/sqm-autorate/reflectors-icmp.csv
 
 	# Create the symlink the Rust binary expects (points to RAM)
-	ln -sf /tmp/reflectors-icmp.csv $(1)/etc/sqm-autorate/reflectors-icmp.csv
+	ln -sf /var/run/sqm-autorate/reflectors-icmp.csv $(1)/etc/sqm-autorate/reflectors-icmp.csv
 endef
 
 $(eval $(call BuildPackage,sqm-autorate-rust))

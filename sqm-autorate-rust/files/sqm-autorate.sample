@@ -17,5 +17,5 @@ config sqm-autorate 'main'
         option upload_base_kbits '940000'
         option download_min_percent '20'
         option upload_min_percent '20'
-        option testing '1'
+#       option testing '1'  # Currently not suported by the rust binarry
         option log_level 'info'
