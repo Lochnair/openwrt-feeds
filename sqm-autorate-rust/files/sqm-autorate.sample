@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Copyright (C) 2023 Nils Andreas Svee
+# Copyright (C) 2026 Fabio Rieker
+
+## This is a sample config for a symmetric gigabit connection.
+## Edit and adapt it to reflect your connection.
+##
+## You might want to change the connection type, ergo the interfaces you are using.
+##
+## Change testing to '0' to turn it from monitoring mode to active mode.
+
+config sqm-autorate 'main'
+        option download_interface 'ifb4pppoe-wan'
+        option upload_interface 'pppoe-wan'
+        option download_base_kbits '940000'
+        option upload_base_kbits '940000'
+        option download_min_percent '20'
+        option upload_min_percent '20'
+        option testing '1'
+        option log_level 'info'
