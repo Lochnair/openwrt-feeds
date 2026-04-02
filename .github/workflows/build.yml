@@ -153,6 +153,16 @@ jobs:
         run: make defconfig
         working-directory: ./sdk
 
+      - name: Install host build dependencies
+        run: sudo apt-get install -y python3-setuptools
+
+      - name: Fix broken SDK host tool symlinks
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          ln -sf "$(which gcc)"     staging_dir/host/bin/gcc
+          ln -sf "$(which python3)" staging_dir/host/bin/python3
+        working-directory: ./sdk
+
       - name: Write SDK ready sentinel
         if: success()
         run: |
@@ -319,7 +329,18 @@ jobs:
           make defconfig
         working-directory: ./sdk
 
+      - name: Install host build dependencies
+        run: sudo apt-get install -y python3-setuptools
+
+      - name: Fix broken SDK host tool symlinks
+        run: |
+          ln -sf "$(which gcc)"     staging_dir/host/bin/gcc
+          ln -sf "$(which python3)" staging_dir/host/bin/python3
+        working-directory: ./sdk
+
       - name: Build targeted package
+        env:
+          CI: ""
         run: |
           make package/${{ matrix.package }}/compile || \
           make package/${{ matrix.package }}/compile V=sc -j1
