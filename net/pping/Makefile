@@ -1,13 +1,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pping
-PKG_VERSION:=777eb72
+PKG_VERSION:=2022-10-24
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/pollere/$(PKG_NAME).git
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_VERSION:=777eb72fd9b748b4bb628ef97b7fff19b751f1fd
+PKG_SOURCE_VERSION:=6cc6a604916d29415bd2c8f51f8be8900f6c83c8
 
 PKG_MAINTAINER:=Nils Andreas Svee <contact@lochnair.net>
 PKG_LICENSE:=GPL-2.0
