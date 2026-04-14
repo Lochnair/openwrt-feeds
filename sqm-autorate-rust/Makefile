@@ -38,8 +38,20 @@ define Package/sqm-autorate-rust/description
 endef
 
 define Package/sqm-autorate-rust/install
-	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/etc/config $(1)/etc/sqm-autorate/rust $(1)/etc/init.d $(1)/usr/sbin $(1)/usr/lib/sqm-autorate-rust
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/stripped/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
+	$(INSTALL_CONF) \
+		./files/reflectors-icmp.csv \
+		$(1)/etc/sqm-autorate-rust/reflectors-icmp.csv
+	$(INSTALL_BIN) \
+		./files/configure.sh \
+		$(1)/usr/lib/sqm-autorate-rust/
+	$(INSTALL_BIN) \
+		./files/sqm-autorate-rust.service \
+		$(1)/etc/init.d/sqm-autorate-rust
+	$(INSTALL_CONF) \
+		./files/sqm-autorate-rust.config \
+		$(1)/etc/config/sqm-autorate-rust
 endef
 
 $(eval $(call BuildPackage,sqm-autorate-rust))
