@@ -9,7 +9,7 @@ jobs:
       openwrt_versions: ${{ steps.set-matrix.outputs.versions }}
       packages: ${{ steps.set-packages.outputs.packages }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: "./feed"
 
@@ -54,7 +54,7 @@ jobs:
           - 'mediatek/filogic'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: "./feed"
 
@@ -214,7 +214,7 @@ jobs:
         package: ${{ fromJson(needs.generate-matrix.outputs.packages) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: "./feed"
 
