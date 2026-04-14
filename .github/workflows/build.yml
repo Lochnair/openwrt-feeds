@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload SDK ready sentinel
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-ready-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}
           path: sentinel.json
@@ -185,7 +185,7 @@ jobs:
       combinations: ${{ steps.build.outputs.combinations }}
     steps:
       - name: Download SDK ready sentinels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: sdk-ready-*
@@ -347,7 +347,7 @@ jobs:
 
       - name: Archive packages
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 'package-${{ matrix.package }}-${{ matrix.combination.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
           path: |
