@@ -336,10 +336,13 @@ jobs:
           ln -sf "$(which python3)" staging_dir/host/bin/python3
         working-directory: ./sdk
 
+      - name: Fix Rust build error until commit is 4c3a649 backported
+        run: |
+          grep -q -- '--ci false \\' feeds/packages/lang/rust/Makefile || sed -i '/x\.py \\/a \        --ci false \\' feeds/packages/lang/rust/Makefile
+        working-directory: ./sdk
+
       - name: Build targeted package
         run: |
-          unset CI
-          unset GITHUB_ACTIONS
           make package/${{ matrix.package }}/compile || \
           make package/${{ matrix.package }}/compile V=sc -j1
         working-directory: ./sdk
