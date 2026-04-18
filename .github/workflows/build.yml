@@ -20,12 +20,12 @@ jobs:
           STABLE=$(echo "$VERSIONS_JSON" | jq -r '.stable_version // empty')
           OLDSTABLE=$(echo "$VERSIONS_JSON" | jq -r '.oldstable_version // empty')
           UPCOMING=$(echo "$VERSIONS_JSON" | jq -r '.upcoming_version // empty')
-          
+
           VERSIONS=()
           [ -n "$STABLE" ] && VERSIONS+=("\"$STABLE\"")
           [ -n "$OLDSTABLE" ] && VERSIONS+=("\"$OLDSTABLE\"")
           [ -n "$UPCOMING" ] && VERSIONS+=("\"$UPCOMING\"")
-          
+
           MATRIX_JSON="[$(IFS=,; echo "${VERSIONS[*]}")]"
           echo "versions=$MATRIX_JSON" >> $GITHUB_OUTPUT
 
@@ -49,9 +49,9 @@ jobs:
       matrix:
         openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
         platform:
-          - 'x86/64'
-          - 'octeon/generic'
-          - 'mediatek/filogic'
+          - "x86/64"
+          - "octeon/generic"
+          - "mediatek/filogic"
 
     steps:
       - uses: actions/checkout@v6
@@ -176,7 +176,6 @@ jobs:
           name: sdk-ready-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}
           path: sentinel.json
 
-
   collect-matrix:
     needs: [generate-matrix, prepare-sdk]
     if: always() && needs.generate-matrix.result == 'success'
@@ -201,7 +200,6 @@ jobs:
             combos=$(echo "$combos" | jq -c ". + [$(cat "$f")]")
           done
           echo "combinations=$combos" >> "$GITHUB_OUTPUT"
-
 
   build:
     needs: [generate-matrix, collect-matrix]
@@ -341,6 +339,7 @@ jobs:
       - name: Build targeted package
         run: |
           unset CI
+          unset GITHUB_ACTIONS
           make package/${{ matrix.package }}/compile || \
           make package/${{ matrix.package }}/compile V=sc -j1
         working-directory: ./sdk
@@ -349,7 +348,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 'package-${{ matrix.package }}-${{ matrix.combination.openwrt }}-${{ steps.sdk.outputs.safe_platform }}'
+          name: "package-${{ matrix.package }}-${{ matrix.combination.openwrt }}-${{ steps.sdk.outputs.safe_platform }}"
           path: |
             ./sdk/bin/packages/**/lochnair/*.apk
             ./sdk/bin/packages/**/lochnair/*.ipk
