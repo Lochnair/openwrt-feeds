@@ -339,6 +339,7 @@ jobs:
       - name: Fix Rust build error until commit is 4c3a649 backported
         run: |
           grep -q -- '--ci false \\' feeds/packages/lang/rust/Makefile || sed -i '/x\.py \\/a \        --ci false \\' feeds/packages/lang/rust/Makefile
+          cat feeds/packages/lang/rust/Makefile
         working-directory: ./sdk
 
       - name: Build targeted package
