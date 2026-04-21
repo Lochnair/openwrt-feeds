@@ -22,7 +22,7 @@ include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
 
 define Build/Compile
-	$(call Build/Compile/Cargo,,)
+	UCI_DIR=$(STAGING_DIR)/usr $(call Build/Compile/Cargo,,)
 endef
 
 define Package/sqm-autorate-rust
