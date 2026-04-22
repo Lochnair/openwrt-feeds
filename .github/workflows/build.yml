@@ -87,6 +87,7 @@ jobs:
           echo "src-link lochnair ${{ github.workspace }}/feed" >> feeds.conf.default
           ./scripts/feeds update lochnair
           ./scripts/feeds install -p lochnair -a
+          ./scripts/feeds install -a
           make defconfig
           make package/${{ matrix.package }}/compile || \
           make package/${{ matrix.package }}/compile V=sc -j1
