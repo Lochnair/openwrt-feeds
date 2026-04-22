@@ -83,6 +83,9 @@ jobs:
         with:
           path: "./feed"
 
+      - name: Fix git ownership
+        run: git config --global --add safe.directory '*'
+
       - name: Build package
         working-directory: /builder
         run: |
