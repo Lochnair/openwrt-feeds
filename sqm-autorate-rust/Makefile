@@ -21,8 +21,10 @@ RUST_PKG_FEATURES:=uci
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
 
+CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr
+
 define Build/Compile
-	UCI_DIR=$(STAGING_DIR)/usr $(call Build/Compile/Cargo,,)
+	$(call Build/Compile/Cargo,,)
 endef
 
 define Package/sqm-autorate-rust
