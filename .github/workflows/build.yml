@@ -84,6 +84,7 @@ jobs:
           path: "./feed"
 
       - name: Build package
+        working-directory: /builder
         run: |
           echo "src-link lochnair ${{ github.workspace }}/feed" >> feeds.conf.default
           ./scripts/feeds update lochnair
@@ -99,5 +100,5 @@ jobs:
         with:
           name: "package-${{ matrix.package }}-${{ matrix.openwrt }}-${{ matrix.target.safe_target }}"
           path: |
-            bin/packages/**/lochnair/*.apk
-            bin/packages/**/lochnair/*.ipk
+            /builder/bin/packages/**/lochnair/*.apk
+            /builder/bin/packages/**/lochnair/*.ipk
