@@ -89,7 +89,7 @@ jobs:
       - name: Build package
         working-directory: /builder
         run: |
-          echo "src-link lochnair ${{ github.workspace }}/feed" >> feeds.conf.default
+          echo "src-link lochnair $GITHUB_WORKSPACE/feed" >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -p lochnair -a
           ./scripts/feeds install -a
