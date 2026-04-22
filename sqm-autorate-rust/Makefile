@@ -21,9 +21,11 @@ RUST_PKG_FEATURES:=uci
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
 
-CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr LIBCLANG_PATH=$(STAGING_DIR_HOST)/lib
+LLVM_BPF_DIR:=$(wildcard $(STAGING_DIR_HOST)/llvm-bpf-*)
+CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr LIBCLANG_PATH=$(LLVM_BPF_DIR)/lib
 
 define Build/Compile
+	$(info CARGO_PKG_VARS is: $(CARGO_PKG_VARS))
 	$(call Build/Compile/Cargo,,)
 endef
 
