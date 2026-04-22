@@ -6,11 +6,11 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sqm-autorate-rust
 PKG_VERSION:=0.4.1
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/sqm-autorate-rust
-PKG_SOURCE_VERSION:=8739ed4419f4d38dfd62116d8fbc40177637e31d
+PKG_SOURCE_VERSION:=2aea1bea861fbc9ff2d749fd750fb0a25d1de7ec
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=MPL
