@@ -43,7 +43,7 @@ endef
 
 define Package/sqm-autorate-rust/install
 	$(INSTALL_DIR) $(1)/etc/config $(1)/etc/sqm-autorate/rust $(1)/etc/init.d $(1)/usr/sbin $(1)/usr/lib/sqm-autorate-rust
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/stripped/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/sqm-autorate-rust $(1)/usr/sbin/sqm-autorate-rust
 	$(INSTALL_CONF) \
 		./files/reflectors-icmp.csv \
 		$(1)/etc/sqm-autorate-rust/reflectors-icmp.csv
