@@ -21,10 +21,8 @@ RUST_PKG_FEATURES:=uci
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
-
-LLVM_BPF_DIR:=$(wildcard $(STAGING_DIR_HOST)/llvm-bpf-*)
 CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr \
-    LIBCLANG_PATH=$(LLVM_BPF_DIR)/lib \
+    LIBCLANG_PATH=$(STAGING_DIR_HOST)/llvm-bpf/lib \
     BINDGEN_EXTRA_CLANG_ARGS="-I$(STAGING_DIR)/usr/include --sysroot=$(TOOLCHAIN_DIR)"
 
 define Build/Compile
