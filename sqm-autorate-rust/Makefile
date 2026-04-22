@@ -18,8 +18,9 @@ PKG_LICENSE:=MPL
 PKG_BUILD_DEPENDS:=rust/host
 RUST_PKG_FEATURES:=uci
 
-include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
+include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
+
 
 LLVM_BPF_DIR:=$(wildcard $(STAGING_DIR_HOST)/llvm-bpf-*)
 CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr \
@@ -59,4 +60,5 @@ define Package/sqm-autorate-rust/install
 		$(1)/etc/config/sqm-autorate-rust
 endef
 
+$(eval $(call RustBinPackage,sqm-autorate-rust))
 $(eval $(call BuildPackage,sqm-autorate-rust))
