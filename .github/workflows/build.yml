@@ -76,6 +76,7 @@ jobs:
 
     container:
       image: lochnair/openwrt-sdk-rust:${{ matrix.target.safe_target }}-${{ matrix.openwrt }}
+      options: --user root
 
     steps:
       - uses: actions/checkout@v6
