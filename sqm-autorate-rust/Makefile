@@ -22,7 +22,9 @@ include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 include $(INCLUDE_DIR)/package.mk
 
 LLVM_BPF_DIR:=$(wildcard $(STAGING_DIR_HOST)/llvm-bpf-*)
-CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr LIBCLANG_PATH=$(LLVM_BPF_DIR)/lib
+CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr \
+    LIBCLANG_PATH=$(LLVM_BPF_DIR)/lib \
+    BINDGEN_EXTRA_CLANG_ARGS="-I$(STAGING_DIR)/usr/include --sysroot=$(TOOLCHAIN_DIR)"
 
 define Build/Compile
 	$(call Build/Compile/Cargo,,)
