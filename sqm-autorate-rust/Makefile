@@ -25,7 +25,6 @@ LLVM_BPF_DIR:=$(wildcard $(STAGING_DIR_HOST)/llvm-bpf-*)
 CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr LIBCLANG_PATH=$(LLVM_BPF_DIR)/lib
 
 define Build/Compile
-	$(info CARGO_PKG_VARS is: $(CARGO_PKG_VARS))
 	$(call Build/Compile/Cargo,,)
 endef
 
@@ -33,7 +32,7 @@ define Package/sqm-autorate-rust
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=sqm autorate (rust)
-  DEPENDS:=$(RUST_ARCH_DEPENDS)
+  DEPENDS:=$(RUST_ARCH_DEPENDS) +libuci
   URL:=https://github.com/Lochnair/sqm-autorate-rust
 endef
 
