@@ -1,6 +1,14 @@
 name: build
 run-name: Build openwrt packages
-on: [pull_request, push, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "Comma-separated list of targets to build"
+        default: "x86/64,mediatek/filogic,octeon/generic"
+        required: false
 
 jobs:
   generate-matrix:
@@ -8,6 +16,7 @@ jobs:
     outputs:
       openwrt_versions: ${{ steps.set-matrix.outputs.versions }}
       packages: ${{ steps.set-packages.outputs.packages }}
+      targets: ${{ steps.set-targets.outputs.targets }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -19,12 +28,10 @@ jobs:
           VERSIONS_JSON=$(curl -sL https://downloads.openwrt.org/.versions.json)
           STABLE=$(echo "$VERSIONS_JSON" | jq -r '.stable_version // empty')
           OLDSTABLE=$(echo "$VERSIONS_JSON" | jq -r '.oldstable_version // empty')
-          UPCOMING=$(echo "$VERSIONS_JSON" | jq -r '.upcoming_version // empty')
 
           VERSIONS=()
           [ -n "$STABLE" ] && VERSIONS+=("\"$STABLE\"")
           [ -n "$OLDSTABLE" ] && VERSIONS+=("\"$OLDSTABLE\"")
-          [ -n "$UPCOMING" ] && VERSIONS+=("\"$UPCOMING\"")
 
           MATRIX_JSON="[$(IFS=,; echo "${VERSIONS[*]}")]"
           echo "versions=$MATRIX_JSON" >> $GITHUB_OUTPUT
@@ -40,319 +47,55 @@ jobs:
           PKGS_JSON="[$(IFS=,; echo "${PACKAGES[*]}")]"
           echo "packages=$PKGS_JSON" >> $GITHUB_OUTPUT
 
-  prepare-sdk:
+      - name: Resolve targets
+        id: set-targets
+        run: |
+          INPUT="${{ inputs.targets || 'x86/64,mediatek/filogic,octeon/generic' }}"
+          TARGETS_JSON='['
+          FIRST=1
+          IFS=',' read -ra TARGETS <<< "$INPUT"
+          for target in "${TARGETS[@]}"; do
+            target=$(echo "$target" | xargs)  # trim whitespace
+            safe=$(echo "$target" | tr '/' '-')
+            [[ $FIRST -ne 1 ]] && TARGETS_JSON="$TARGETS_JSON,"
+            FIRST=0
+            TARGETS_JSON="$TARGETS_JSON{\"target\":\"$target\",\"safe_target\":\"$safe\"}"
+          done
+          TARGETS_JSON="$TARGETS_JSON]"
+          echo "targets=$TARGETS_JSON" >> $GITHUB_OUTPUT
+
+  build:
     needs: generate-matrix
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
-        platform:
-          - "x86/64"
-          - "octeon/generic"
-          - "mediatek/filogic"
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: "./feed"
-
-      - name: Figure out SDK URL and safe platform
-        id: sdk
-        run: |
-          set -eu
-
-          OPENWRT="${{ matrix.openwrt }}"
-          PLATFORM="${{ matrix.platform }}"
-
-          # Replace / with - for artifact naming
-          SAFE_PLATFORM="${PLATFORM//\//-}"
-          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
-
-          TARGET="${PLATFORM%%/*}"
-          SUBTARGET="${PLATFORM##*/}"
-
-          echo "OpenWrt: $OPENWRT"
-          echo "Target:  $TARGET"
-          echo "Subtgt:  $SUBTARGET"
-
-          if [ "$OPENWRT" = "snapshot" ]; then
-            BASE="https://downloads.openwrt.org/snapshots/targets/${TARGET}/${SUBTARGET}"
-          else
-            BASE="https://downloads.openwrt.org/releases/${OPENWRT}/targets/${TARGET}/${SUBTARGET}"
-          fi
-
-          echo "Base path: $BASE"
-
-          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" \
-            | awk '{print $2}' \
-            | grep 'openwrt-sdk' \
-            | head -n1 \
-            | tr -d '*')"
-
-          if [ -z "$SDK_FILE" ]; then
-            echo "No SDK file found in ${BASE}/sha256sums"
-            exit 1
-          fi
-
-          SDK_URL="${BASE}/${SDK_FILE}"
-          echo "Using SDK: $SDK_URL"
-
-          echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
-          echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache OpenWrt SDK tree
-        id: cache-sdk
-        uses: actions/cache@v5
-        with:
-          path: ./sdk
-          key: sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-${{ github.sha }}
-          restore-keys: |
-            sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-
-
-      - name: Determine decompression flag
-        id: decompression
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          url="${{ steps.sdk.outputs.sdk_url }}"
-          if [[ "$url" == *.tar.xz ]]; then
-            echo "decompress_flag=--xz" >> $GITHUB_ENV
-          elif [[ "$url" == *.tar.zst ]]; then
-            echo "decompress_flag=--zstd" >> $GITHUB_ENV
-          else
-            echo "Unknown file extension: $url" >&2
-            exit 1
-          fi
-
-      - name: Download & extract SDK when cache is cold
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ./sdk
-          wget -O- "${{ steps.sdk.outputs.sdk_url }}" \
-            | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
-
-      - name: Create feeds.conf
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          cp -v feeds.conf.default feeds.conf
-          echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
-        working-directory: ./sdk
-
-      - name: Update and install feeds
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          ./scripts/feeds update -a
-          # First install everything from lochnair, then the rest, so overrides win
-          ./scripts/feeds install -p lochnair -a
-          ./scripts/feeds install -a
-        working-directory: ./sdk
-
-      - name: Create default config
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: make defconfig
-        working-directory: ./sdk
-
-      - name: Install host build dependencies
-        run: sudo apt-get install -y python3-setuptools
-
-      - name: Fix broken SDK host tool symlinks
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          ln -sf "$(which gcc)"     staging_dir/host/bin/gcc
-          ln -sf "$(which python3)" staging_dir/host/bin/python3
-        working-directory: ./sdk
-
-      - name: Write SDK ready sentinel
-        if: success()
-        run: |
-          echo '{"openwrt":"${{ matrix.openwrt }}","platform":"${{ matrix.platform }}"}' \
-            > sentinel.json
-
-      - name: Upload SDK ready sentinel
-        if: success()
-        uses: actions/upload-artifact@v7
-        with:
-          name: sdk-ready-${{ matrix.openwrt }}-${{ steps.sdk.outputs.safe_platform }}
-          path: sentinel.json
-
-  collect-matrix:
-    needs: [generate-matrix, prepare-sdk]
-    if: always() && needs.generate-matrix.result == 'success'
-    runs-on: ubuntu-latest
-    outputs:
-      combinations: ${{ steps.build.outputs.combinations }}
-    steps:
-      - name: Download SDK ready sentinels
-        uses: actions/download-artifact@v8
-        continue-on-error: true
-        with:
-          pattern: sdk-ready-*
-          path: ./sentinels
-
-      - name: Build combinations matrix
-        id: build
-        run: |
-          combos="[]"
-          for d in ./sentinels/sdk-ready-*/; do
-            f="$d/sentinel.json"
-            [ -f "$f" ] || continue
-            combos=$(echo "$combos" | jq -c ". + [$(cat "$f")]")
-          done
-          echo "combinations=$combos" >> "$GITHUB_OUTPUT"
-
-  build:
-    needs: [generate-matrix, collect-matrix]
-    if: needs.collect-matrix.outputs.combinations != '[]'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        combination: ${{ fromJson(needs.collect-matrix.outputs.combinations) }}
+        target: ${{ fromJson(needs.generate-matrix.outputs.targets) }}
         package: ${{ fromJson(needs.generate-matrix.outputs.packages) }}
 
+    container:
+      image: lochnair/openwrt-sdk-rust:${{ matrix.target.safe_target }}-${{ matrix.openwrt }}
+
     steps:
       - uses: actions/checkout@v6
         with:
           path: "./feed"
 
-      - name: Figure out SDK URL and safe platform
-        id: sdk
+      - name: Build package
         run: |
-          set -eu
-
-          OPENWRT="${{ matrix.combination.openwrt }}"
-          PLATFORM="${{ matrix.combination.platform }}"
-
-          # Replace / with - for artifact naming
-          SAFE_PLATFORM="${PLATFORM//\//-}"
-          echo "safe_platform=$SAFE_PLATFORM" >> "$GITHUB_OUTPUT"
-
-          TARGET="${PLATFORM%%/*}"
-          SUBTARGET="${PLATFORM##*/}"
-
-          echo "OpenWrt: $OPENWRT"
-          echo "Target:  $TARGET"
-          echo "Subtgt:  $SUBTARGET"
-
-          if [ "$OPENWRT" = "snapshot" ]; then
-            BASE="https://downloads.openwrt.org/snapshots/targets/${TARGET}/${SUBTARGET}"
-          else
-            BASE="https://downloads.openwrt.org/releases/${OPENWRT}/targets/${TARGET}/${SUBTARGET}"
-          fi
-
-          echo "Base path: $BASE"
-
-          SDK_FILE="$(curl -fsSL "${BASE}/sha256sums" \
-            | awk '{print $2}' \
-            | grep 'openwrt-sdk' \
-            | head -n1 \
-            | tr -d '*')"
-
-          if [ -z "$SDK_FILE" ]; then
-            echo "No SDK file found in ${BASE}/sha256sums"
-            exit 1
-          fi
-
-          SDK_URL="${BASE}/${SDK_FILE}"
-          echo "Using SDK: $SDK_URL"
-
-          echo "sdk_url=${SDK_URL}" >> "$GITHUB_OUTPUT"
-          echo "sdk_file=${SDK_FILE}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache OpenWrt SDK tree
-        id: cache-sdk
-        uses: actions/cache@v5
-        with:
-          path: ./sdk
-          key: sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-${{ github.sha }}
-          restore-keys: |
-            sdk-${{ runner.os }}-${{ steps.sdk.outputs.sdk_file }}-
-
-      - name: Debug Cache Status
-        run: |
-          echo "Cache Hit: ${{ steps.cache-sdk.outputs.cache-hit }}"
-          echo "Key Hash: ${{ github.sha }}"
-          if [ "${{ steps.cache-sdk.outputs.cache-hit }}" != "true" ]; then
-            echo "::warning::Cache miss on exact key. Attempting to restore via prefix."
-          fi
-
-      - name: Determine decompression flag
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          if [ -d "sdk" ]; then
-            echo "SDK restored via partial match. Skipping download."
-            exit 0
-          fi
-          url="${{ steps.sdk.outputs.sdk_url }}"
-          if [[ "$url" == *.tar.xz ]]; then
-            echo "decompress_flag=--xz" >> $GITHUB_ENV
-          elif [[ "$url" == *.tar.zst ]]; then
-            echo "decompress_flag=--zstd" >> $GITHUB_ENV
-          else
-            echo "Unknown file extension: $url" >&2
-            exit 1
-          fi
-
-      - name: Download & extract SDK when cache is cold
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          if [ -d "sdk" ]; then exit 0; fi
-          mkdir -p ./sdk
-          wget -O- "${{ steps.sdk.outputs.sdk_url }}" \
-            | tar ${{ env.decompress_flag }} --strip-components=1 -x -C ./sdk
-
-      - name: Create feeds.conf
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          if [ -f "sdk/feeds.conf" ]; then exit 0; fi
-          cp -v feeds.conf.default feeds.conf
-          echo "src-link lochnair $GITHUB_WORKSPACE/feed" | tee -a feeds.conf
-        working-directory: ./sdk
-
-      - name: Update and install feeds
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          if [ -d "sdk/feeds/lochnair" ]; then exit 0; fi
-          ./scripts/feeds update -a
-          # First install everything from lochnair, then the rest, so overrides win
+          echo "src-link lochnair ${{ github.workspace }}/feed" >> feeds.conf.default
+          ./scripts/feeds update lochnair
           ./scripts/feeds install -p lochnair -a
-          ./scripts/feeds install -a
-        working-directory: ./sdk
-
-      - name: Create default config
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
-        run: |
-          if [ -f "sdk/.config" ]; then exit 0; fi
           make defconfig
-        working-directory: ./sdk
-
-      - name: Install host build dependencies
-        run: sudo apt-get install -y python3-setuptools
-
-      - name: Fix broken SDK host tool symlinks
-        run: |
-          ln -sf "$(which gcc)"     staging_dir/host/bin/gcc
-          ln -sf "$(which python3)" staging_dir/host/bin/python3
-        working-directory: ./sdk
-
-      - name: Fix Rust build error until commit is 4c3a649 backported
-        run: |
-          sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/g' feeds/packages/lang/rust/Makefile
-          cat feeds/packages/lang/rust/Makefile
-        working-directory: ./sdk
-
-      - name: Build targeted package
-        run: |
           make package/${{ matrix.package }}/compile || \
           make package/${{ matrix.package }}/compile V=sc -j1
-        working-directory: ./sdk
 
       - name: Archive packages
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: "package-${{ matrix.package }}-${{ matrix.combination.openwrt }}-${{ steps.sdk.outputs.safe_platform }}"
+          name: "package-${{ matrix.package }}-${{ matrix.openwrt }}-${{ matrix.target.safe_target }}"
           path: |
-            ./sdk/bin/packages/**/lochnair/*.apk
-            ./sdk/bin/packages/**/lochnair/*.ipk
+            bin/packages/**/lochnair/*.apk
+            bin/packages/**/lochnair/*.ipk
