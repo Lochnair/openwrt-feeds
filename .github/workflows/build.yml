@@ -18,7 +18,7 @@ jobs:
       packages: ${{ steps.set-packages.outputs.packages }}
       targets: ${{ steps.set-targets.outputs.targets }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: "./feed"
 
@@ -79,7 +79,7 @@ jobs:
       options: --user root
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: "./feed"
 
