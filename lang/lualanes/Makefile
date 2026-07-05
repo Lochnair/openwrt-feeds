@@ -50,9 +50,8 @@ endef
 
 define Package/lualanes/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/share/lua/lmod/lanes.lua $(1)/usr/lib/lua/
-	$(INSTALL_DIR) $(1)/usr/lib/lua/lanes
-	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/share/lua/cmod/core.so $(1)/usr/lib/lua/lanes/core.so
+	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/share/lua/lmod/lanes.lua $(1)/usr/lib/lua/lanes.lua
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/share/lua/cmod/lanes_core.so $(1)/usr/lib/lua/lanes_core.so
 endef
 
 $(eval $(call BuildPackage,lualanes))
