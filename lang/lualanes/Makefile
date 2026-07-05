@@ -8,12 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lualanes
-PKG_VERSION:=3.17.2
-PKG_RELEASE:=2
+PKG_VERSION:=4.0.0
+PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/LuaLanes/lanes/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=854c1379cde584dd544a3cf098e0ec130248f3a102f65f1064974872e5b4821a
+PKG_HASH:=e680253ce5d64da1fd5c8d44d31dd1eb4fe7e24cfa5ddded10fa34cbee92d179
+
 PKG_BUILD_DIR:=$(BUILD_DIR)/lanes-$(PKG_VERSION)
 
 PKG_MAINTAINER:=Vladimir Malyutin <first-leon@yandex.ru>
@@ -31,7 +32,7 @@ define Package/lualanes
 	CATEGORY:=Languages
 	TITLE:=LuaLanes
 	URL:=http://lualanes.github.io/lanes/
-	DEPENDS:=+lua +luac +liblua +libpthread
+	DEPENDS:=+lua +luac +liblua +libpthread +libstdcpp
 endef
 
 define Package/lualanes/description
