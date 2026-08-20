@@ -45,7 +45,6 @@ $(call Package/irtt-rs/Default)
   TITLE:=IRTT-compatible Rust client
   VARIANT:=client
   DEFAULT_VARIANT:=1
-  CONFLICTS:=irtt-rs-full
 endef
 
 define Package/irtt-rs/description
@@ -57,7 +56,6 @@ $(call Package/irtt-rs/Default)
   TITLE:=IRTT-compatible Rust client, server, and terminal UI
   VARIANT:=full
   PROVIDES:=irtt-rs
-  CONFLICTS:=irtt-rs
 endef
 
 define Package/irtt-rs-full/description
