@@ -5,12 +5,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=irtt-rs
-PKG_VERSION:=0.6.1
+PKG_VERSION:=0.7.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/irtt-rs.git
-PKG_SOURCE_VERSION:=5d0785389310c33ec68d32c751db669935a4534e
+PKG_SOURCE_VERSION:=irtt-rs/v$(PKG_VERSION)
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=Apache-2.0
