@@ -5,8 +5,12 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      versions:
+        description: "Comma-separated OpenWrt versions or stable/oldstable aliases"
+        default: "stable,oldstable"
+        required: false
       targets:
-        description: "Comma-separated list of targets to build"
+        description: "Comma-separated firmware targets, or all (selects package architectures)"
         default: "x86/64,mediatek/filogic,octeon/generic"
         required: false
 
@@ -14,94 +18,71 @@ jobs:
   generate-matrix:
     runs-on: ubuntu-latest
     outputs:
-      openwrt_versions: ${{ steps.set-matrix.outputs.versions }}
-      packages: ${{ steps.set-packages.outputs.packages }}
-      targets: ${{ steps.set-targets.outputs.targets }}
+      matrix: ${{ steps.sdk.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Test workflow helpers
+        run: python3 -m unittest discover -s ci -v
+
+      - name: Select upstream package architectures
+        id: openwrt
+        uses: Lochnair/openwrt-sdk-rust/actions/openwrt-matrix@61855be2aed1b0ebc692aab51179f6aa0e4baccc
         with:
-          path: "./feed"
+          versions: ${{ inputs.versions || 'stable,oldstable' }}
+          targets: ${{ inputs.targets || 'x86/64,mediatek/filogic,octeon/generic' }}
 
-      - name: Fetch OpenWrt versions
-        id: set-matrix
-        run: |
-          VERSIONS_JSON=$(curl -sL https://downloads.openwrt.org/.versions.json)
-          STABLE=$(echo "$VERSIONS_JSON" | jq -r '.stable_version // empty')
-          OLDSTABLE=$(echo "$VERSIONS_JSON" | jq -r '.oldstable_version // empty')
-
-          VERSIONS=()
-          [ -n "$STABLE" ] && VERSIONS+=("\"$STABLE\"")
-          [ -n "$OLDSTABLE" ] && VERSIONS+=("\"$OLDSTABLE\"")
-
-          MATRIX_JSON="[$(IFS=,; echo "${VERSIONS[*]}")]"
-          echo "versions=$MATRIX_JSON" >> $GITHUB_OUTPUT
-
-      - name: Figure out Packages
-        id: set-packages
-        run: |
-          PACKAGES=()
-          for mk in $(find feed -mindepth 2 -maxdepth 3 -name Makefile); do
-            pkg=$(basename $(dirname "$mk"))
-            PACKAGES+=("\"$pkg\"")
-          done
-          PKGS_JSON="[$(IFS=,; echo "${PACKAGES[*]}")]"
-          echo "packages=$PKGS_JSON" >> $GITHUB_OUTPUT
-
-      - name: Resolve targets
-        id: set-targets
-        run: |
-          INPUT="${{ inputs.targets || 'x86/64,mediatek/filogic,octeon/generic' }}"
-          TARGETS_JSON='['
-          FIRST=1
-          IFS=',' read -ra TARGETS <<< "$INPUT"
-          for target in "${TARGETS[@]}"; do
-            target=$(echo "$target" | xargs)  # trim whitespace
-            safe=$(echo "$target" | tr '/' '-')
-            [[ $FIRST -ne 1 ]] && TARGETS_JSON="$TARGETS_JSON,"
-            FIRST=0
-            TARGETS_JSON="$TARGETS_JSON{\"target\":\"$target\",\"safe_target\":\"$safe\"}"
-          done
-          TARGETS_JSON="$TARGETS_JSON]"
-          echo "targets=$TARGETS_JSON" >> $GITHUB_OUTPUT
+      - name: Select Rust SDK images
+        id: sdk
+        env:
+          OPENWRT_MATRIX: ${{ steps.openwrt.outputs.matrix }}
+        run: python3 ci/matrix.py
 
   build:
     needs: generate-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        openwrt: ${{ fromJson(needs.generate-matrix.outputs.openwrt_versions) }}
-        target: ${{ fromJson(needs.generate-matrix.outputs.targets) }}
-        package: ${{ fromJson(needs.generate-matrix.outputs.packages) }}
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
 
     container:
-      image: lochnair/openwrt-sdk-rust:${{ matrix.target.safe_target }}-${{ matrix.openwrt }}
+      image: ${{ matrix.image }}
       options: --user root
+
+    env:
+      OPENWRT_VERSION: ${{ matrix.version }}
+      PACKAGE_ARCH: ${{ matrix.package_arch }}
+      SDK_TARGET: ${{ matrix.target }}
 
     steps:
       - uses: actions/checkout@v7
         with:
-          path: "./feed"
+          path: feed
 
       - name: Fix git ownership
         run: git config --global --add safe.directory '*'
 
-      - name: Build package
+      - name: Initialize feeds and compile every feed package
         working-directory: /builder
-        run: |
-          echo "src-link lochnair $GITHUB_WORKSPACE/feed" >> feeds.conf.default
-          ./scripts/feeds update -a
-          ./scripts/feeds install -p lochnair -a
-          ./scripts/feeds install -a
-          make defconfig
-          make package/${{ matrix.package }}/compile || \
-          make package/${{ matrix.package }}/compile V=sc -j1
+        run: python3 "$GITHUB_WORKSPACE/feed/ci/build.py" build
 
-      - name: Archive packages
-        if: always()
+      - name: Collect packages and generate unsigned repositories
+        if: ${{ !cancelled() }}
+        working-directory: /builder
+        run: python3 "$GITHUB_WORKSPACE/feed/ci/build.py" repository
+
+      - name: Upload userspace repositories
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: "package-${{ matrix.package }}-${{ matrix.openwrt }}-${{ matrix.target.safe_target }}"
-          path: |
-            /builder/bin/packages/**/lochnair/*.apk
-            /builder/bin/packages/**/lochnair/*.ipk
+          name: "repository-${{ matrix.version }}-${{ matrix.package_arch }}"
+          path: output/repositories/
+          if-no-files-found: warn
+
+      - name: Upload target-specific artifacts separately
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: "target-specific-${{ matrix.version }}-${{ matrix.package_arch }}"
+          path: output/target-specific/
+          if-no-files-found: ignore
