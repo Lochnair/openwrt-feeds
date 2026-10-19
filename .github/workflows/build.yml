@@ -11,7 +11,7 @@ on:
         required: false
       targets:
         description: "Comma-separated firmware targets, or all (selects package architectures)"
-        default: "x86/64,mediatek/filogic,octeon/generic"
+        default: "all"
         required: false
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
         uses: Lochnair/openwrt-sdk-rust/actions/openwrt-matrix@61855be2aed1b0ebc692aab51179f6aa0e4baccc
         with:
           versions: ${{ inputs.versions || '24.10.8,25.12.5' }}
-          targets: ${{ inputs.targets || 'x86/64,mediatek/filogic,octeon/generic' }}
+          targets: ${{ inputs.targets || 'all' }}
 
       - name: Select available Rust or official SDK images
         id: sdk
