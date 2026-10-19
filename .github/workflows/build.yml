@@ -7,7 +7,7 @@ on:
     inputs:
       versions:
         description: "Comma-separated OpenWrt versions or stable/oldstable aliases"
-        default: "stable,oldstable"
+        default: "24.10.8,25.12.5"
         required: false
       targets:
         description: "Comma-separated firmware targets, or all (selects package architectures)"
@@ -26,10 +26,10 @@ jobs:
         id: openwrt
         uses: Lochnair/openwrt-sdk-rust/actions/openwrt-matrix@61855be2aed1b0ebc692aab51179f6aa0e4baccc
         with:
-          versions: ${{ inputs.versions || 'stable,oldstable' }}
+          versions: ${{ inputs.versions || '24.10.8,25.12.5' }}
           targets: ${{ inputs.targets || 'x86/64,mediatek/filogic,octeon/generic' }}
 
-      - name: Select Rust SDK images
+      - name: Select available Rust or official SDK images
         id: sdk
         env:
           OPENWRT_MATRIX: ${{ steps.openwrt.outputs.matrix }}
@@ -50,6 +50,7 @@ jobs:
       OPENWRT_VERSION: ${{ matrix.version }}
       PACKAGE_ARCH: ${{ matrix.package_arch }}
       SDK_TARGET: ${{ matrix.target }}
+      SDK_HAS_RUST: ${{ matrix.rust }}
 
     steps:
       - uses: actions/checkout@v7

@@ -3,6 +3,7 @@
 import gzip
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -27,22 +28,35 @@ def initialize_feeds(sdk, feed):
     subprocess.run(["./scripts/feeds", "update", "-a"], cwd=sdk, check=True)
     # This installs the local recipes AND their recursive upstream dependencies.
     subprocess.run(["./scripts/feeds", "install", "-a", "-p", "lochnair"], cwd=sdk, check=True)
-    subprocess.run(
-        [
-            "sed", "-i",
-            "s/^CONFIG_RUST_SCCACHE=y$/# CONFIG_RUST_SCCACHE is not set/",
-            ".config",
-        ],
-        cwd=sdk,
-        check=True,
-    )
+    if (sdk / ".config").exists():
+        subprocess.run(
+            [
+                "sed", "-i",
+                "s/^CONFIG_RUST_SCCACHE=y$/# CONFIG_RUST_SCCACHE is not set/",
+                ".config",
+            ],
+            cwd=sdk,
+            check=True,
+        )
     subprocess.run(["make", "defconfig"], cwd=sdk, check=True)
 
 
-def compile_packages(sdk, packages, summary):
+def is_rust_recipe(makefile):
+    source = "\n".join(line.split("#", 1)[0] for line in makefile.read_text().splitlines())
+    source = source.replace("\\\n", " ")
+    return bool(re.search(r"\brust/host\b|\brust-package\.mk\b|\bBuild/Compile/Cargo\b|\bRustBinPackage\b",
+                          source))
+
+
+def compile_packages(sdk, packages, summary, rust=True):
     failed = []
     results = []
     for package in packages:
+        if not rust and is_rust_recipe(sdk / "package/feeds/lochnair" / package / "Makefile"):
+            reason = "SKIPPED (Rust recipe; official SDK has no prebuilt Rust toolchain)"
+            print(f"{package}: {reason}", flush=True)
+            results.append(f"| {package} | {reason} |\n")
+            continue
         target = f"package/feeds/lochnair/{package}/compile"
         print(f"::group::Build {package}", flush=True)
         result = subprocess.run(["make", target], cwd=sdk)
@@ -129,7 +143,8 @@ def main():
         initialize_feeds(sdk, workspace / "feed")
         packages = discover_packages(sdk)
         print(f"Discovered recipes: {', '.join(packages)}", flush=True)
-        failed = compile_packages(sdk, packages, Path(os.environ["GITHUB_STEP_SUMMARY"]))
+        failed = compile_packages(sdk, packages, Path(os.environ["GITHUB_STEP_SUMMARY"]),
+                                  rust=os.environ.get("SDK_HAS_RUST", "true") == "true")
         return int(bool(failed))
     if sys.argv[1] == "repository":
         repository = collect_packages(sdk, workspace / "output", os.environ["OPENWRT_VERSION"],
