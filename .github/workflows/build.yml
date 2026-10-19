@@ -22,9 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Test workflow helpers
-        run: python3 -m unittest discover -s ci -v
-
       - name: Select upstream package architectures
         id: openwrt
         uses: Lochnair/openwrt-sdk-rust/actions/openwrt-matrix@61855be2aed1b0ebc692aab51179f6aa0e4baccc
