@@ -28,7 +28,11 @@ def initialize_feeds(sdk, feed):
     # This installs the local recipes AND their recursive upstream dependencies.
     subprocess.run(["./scripts/feeds", "install", "-a", "-p", "lochnair"], cwd=sdk, check=True)
     subprocess.run(
-        ["./scripts/config", "-d", "RUST_SCCACHE"],
+        [
+            "sed", "-i",
+            "s/^CONFIG_RUST_SCCACHE=y$/# CONFIG_RUST_SCCACHE is not set/",
+            ".config",
+        ],
         cwd=sdk,
         check=True,
     )
