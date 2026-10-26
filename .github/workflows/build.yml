@@ -7,7 +7,7 @@ on:
     inputs:
       versions:
         description: "Comma-separated OpenWrt versions or stable/oldstable aliases"
-        default: "24.10.8,25.12.5"
+        default: "24.10.8,25.12.6"
         required: false
       targets:
         description: "Comma-separated firmware targets, or all (selects package architectures)"
