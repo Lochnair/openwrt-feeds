@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=irtt-rs
-PKG_VERSION:=0.9.0
+PKG_VERSION:=0.10.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
@@ -26,11 +26,11 @@ include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 CARGO_PKG_ARGS += --no-default-features --bin irtt-rs
 
 ifeq ($(BUILD_VARIANT),client)
-  RUST_PKG_FEATURES:=client
+  RUST_PKG_FEATURES:=client,stats
 endif
 
 ifeq ($(BUILD_VARIANT),full)
-  RUST_PKG_FEATURES:=client,server,tui
+  RUST_PKG_FEATURES:=client,server,stats,tui
 endif
 
 define Package/irtt-rs/Default
