@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=irtt-rs
-PKG_VERSION:=0.10.0
+PKG_VERSION:=0.10.2
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
