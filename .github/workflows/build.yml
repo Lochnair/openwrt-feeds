@@ -1,24 +1,33 @@
 name: build
-run-name: Build openwrt packages
+run-name: Build OpenWrt packages (publish=${{ inputs.publish || false }})
 on:
   push:
   pull_request:
   workflow_dispatch:
     inputs:
       versions:
-        description: "Comma-separated OpenWrt versions or stable/oldstable aliases"
-        default: "24.10.8,25.12.6"
+        description: "OpenWrt versions (24.10 is optional, artifact-only)"
+        default: "25.12.6"
         required: false
       targets:
-        description: "Comma-separated firmware targets, or all (selects package architectures)"
+        description: "Firmware targets, or all (one SDK per package architecture)"
         default: "all"
         required: false
+      publish:
+        description: "Publish the complete 25.12 userspace APK repository (main only)"
+        type: boolean
+        default: false
+        required: false
+
+permissions:
+  contents: read
 
 jobs:
   generate-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.sdk.outputs.matrix }}
+      signing_image: ${{ steps.sdk.outputs.signing_image }}
     steps:
       - uses: actions/checkout@v7
 
@@ -26,18 +35,30 @@ jobs:
         id: openwrt
         uses: Lochnair/openwrt-sdk-rust/actions/openwrt-matrix@61855be2aed1b0ebc692aab51179f6aa0e4baccc
         with:
-          versions: ${{ inputs.versions || '24.10.8,25.12.5' }}
+          versions: ${{ inputs.versions || '25.12.6' }}
           targets: ${{ inputs.targets || 'all' }}
 
       - name: Select available Rust or official SDK images
         id: sdk
         env:
           OPENWRT_MATRIX: ${{ steps.openwrt.outputs.matrix }}
+          PUBLISH: ${{ inputs.publish || false }}
+          TARGETS: ${{ inputs.targets || 'all' }}
         run: python3 ci/matrix.py
+
+      - name: Preserve expected matrix for this run
+        uses: actions/upload-artifact@v7
+        with:
+          name: publication-matrix
+          path: publication-matrix.json
+          overwrite: true
+          if-no-files-found: error
 
   build:
     needs: generate-matrix
     runs-on: ubuntu-latest
+    # Explicitly requested 24.10 builds are best-effort downloadable artifacts.
+    continue-on-error: ${{ startsWith(matrix.version, '24.10.') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
@@ -51,6 +72,7 @@ jobs:
       PACKAGE_ARCH: ${{ matrix.package_arch }}
       SDK_TARGET: ${{ matrix.target }}
       SDK_HAS_RUST: ${{ matrix.rust }}
+      SDK_IMAGE: ${{ matrix.image }}
 
     steps:
       - uses: actions/checkout@v7
@@ -60,21 +82,22 @@ jobs:
       - name: Fix git ownership
         run: git config --global --add safe.directory '*'
 
-      - name: Initialize feeds and compile every feed package
+      - name: Initialize feeds and compile every supported feed package
         working-directory: /builder
         run: python3 "$GITHUB_WORKSPACE/feed/ci/build.py" build
 
-      - name: Collect packages and generate unsigned repositories
+      - name: Collect local packages and generate diagnostic unsigned APK indexes
         if: ${{ !cancelled() }}
         working-directory: /builder
         run: python3 "$GITHUB_WORKSPACE/feed/ci/build.py" repository
 
-      - name: Upload userspace repositories
+      - name: Upload userspace packages and completeness report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: "repository-${{ matrix.version }}-${{ matrix.package_arch }}"
-          path: output/repositories/
+          path: output/repositories/${{ matrix.version }}/${{ matrix.package_arch }}/
+          overwrite: true
           if-no-files-found: warn
 
       - name: Upload target-specific artifacts separately
@@ -83,4 +106,63 @@ jobs:
         with:
           name: "target-specific-${{ matrix.version }}-${{ matrix.package_arch }}"
           path: output/target-specific/
+          overwrite: true
           if-no-files-found: ignore
+
+  publish:
+    needs: [generate-matrix, build]
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true &&
+          github.repository == 'Lochnair/openwrt-feeds' && github.ref == 'refs/heads/main' &&
+          needs.generate-matrix.result == 'success' &&
+          needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: apk-publication
+    permissions:
+      contents: read
+    concurrency:
+      group: openwrt-apk-publication-25.12
+      cancel-in-progress: false
+    container:
+      image: ${{ needs.generate-matrix.outputs.signing_image }}
+      options: --user root
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the expected matrix from this run
+        uses: actions/download-artifact@v8
+        with:
+          name: publication-matrix
+          path: expected
+
+      - name: Download userspace artifacts from this run only
+        uses: actions/download-artifact@v8
+        with:
+          pattern: repository-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Validate the complete matrix and sign with SDK APK v3
+        env:
+          APK_SIGNING_KEY: ${{ secrets.APK_SIGNING_KEY }}
+          APK_PUBLIC_KEY_SHA256: ${{ vars.APK_PUBLIC_KEY_SHA256 }}
+        run: >-
+          python3 ci/publish.py prepare --apk /builder/staging_dir/host/bin/apk
+          --matrix expected/publication-matrix.json --artifacts artifacts --output publication
+
+      - name: Preserve verified signed public files
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-publication
+          path: publication/
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Revalidate and publish packages before indexes
+        env:
+          APK_PUBLIC_KEY_SHA256: ${{ vars.APK_PUBLIC_KEY_SHA256 }}
+          BUNNY_STORAGE_ENDPOINT: ${{ vars.BUNNY_STORAGE_ENDPOINT }}
+          BUNNY_STORAGE_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_ACCESS_KEY }}
+        run: >-
+          python3 ci/publish.py deploy --apk /builder/staging_dir/host/bin/apk
+          --matrix expected/publication-matrix.json --artifacts artifacts --output publication

@@ -2,9 +2,13 @@
 
 import json
 import os
+from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from packages import public_release, write_json
+from publish import publication_rows
 
 
 REPOSITORY = "lochnair/openwrt-sdk-rust"
@@ -58,10 +62,22 @@ def sdk_matrix(matrix):
 
 
 def main():
-    matrix = sdk_matrix(json.loads(os.environ["OPENWRT_MATRIX"]))
+    upstream = json.loads(os.environ["OPENWRT_MATRIX"])
+    for row in upstream["include"]:
+        public_release(row["version"])
+    publishing = os.environ.get("PUBLISH", "false") == "true"
+    if publishing:
+        if os.environ.get("TARGETS", "all") != "all":
+            raise ValueError("Publication requires targets=all; partial builds are artifacts only")
+        publication_rows(upstream)
+    matrix = sdk_matrix(upstream)
+    write_json(Path("publication-matrix.json"), matrix)
     encoded = json.dumps(matrix, separators=(",", ":"))
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         output.write(f"matrix={encoded}\n")
+        signing = next((row["image"] for row in matrix["include"]
+                        if public_release(row["version"])), "")
+        output.write(f"signing_image={signing}\n")
     print(encoded)
 
 
