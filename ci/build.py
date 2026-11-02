@@ -59,10 +59,14 @@ def build_plan(sdk, feed, packages, rust):
                 continue
             # None of this feed's userspace outputs currently use ABI suffixes.
             # Fail closed rather than guess a future library's binary filename.
-            if output.get('ABI-Version'):
+            if kind == 'userspace' and output.get('ABI-Version'):
                 raise ValueError(f'ABI-suffixed output needs explicit support: {name}')
+            # Kernel DUMP metadata contains <LINUX_VERSION>, resolved only at build time.
+            # It is diagnostic metadata, never a public repository filename.
+            version = (component(output['Version']) if kind == 'userspace'
+                       else output['Version'])
             package = {'name': component(output['Package']),
-                       'version': component(output['Version']), 'status': 'pending',
+                       'version': version, 'status': 'pending',
                        'depends': output.get('Depends', ''),
                        'menu_depends': output.get('Menu-Depends', '')}
             if needs_rust and not rust:
@@ -137,8 +141,12 @@ def collect_packages(sdk, output, report):
             print('::warning::Could not collect all target-specific diagnostics', flush=True)
     source = sdk / 'bin/packages' / arch / 'lochnair'
     expected = {}
+    target_packages = {}
     for recipe in report['recipes']:
         for package in recipe['packages']:
+            if recipe['kind'] == 'target-specific':
+                target_packages[package['name']] = (recipe, package)
+                continue
             name, ver = package['name'], package['version']
             filename = (f'{name}-{ver}.apk' if report['format'] == 'apk'
                         else f'{name}_{ver}_{arch}.ipk')
@@ -148,9 +156,16 @@ def collect_packages(sdk, output, report):
     for path in sorted(source.glob('*')):
         if path.suffix not in ('.apk', '.ipk'):
             continue
-        if path.name not in expected:
+        entry = expected.get(path.name)
+        if entry is None:
+            # Match known target outputs by name, not their unresolved DUMP version.
+            separator = '-' if path.suffix == '.apk' else '_'
+            entry = next((target_packages[name] for name in sorted(
+                target_packages, key=len, reverse=True)
+                if path.name.startswith(name + separator)), None)
+        if entry is None:
             raise ValueError(f'Unexpected local feed output: {path.name}')
-        recipe, package = expected[path.name]
+        recipe, package = entry
         if path.is_symlink() or not path.is_file() or targets.resolve() in path.resolve().parents:
             if recipe['kind'] == 'target-specific':
                 report['target_specific_errors'].append(f'Not a regular target artifact: {path.name}')
