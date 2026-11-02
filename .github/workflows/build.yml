@@ -1,7 +1,6 @@
 name: build
 run-name: Build OpenWrt packages (publish=${{ inputs.publish || false }})
 on:
-  push:
   pull_request:
   workflow_dispatch:
     inputs:
@@ -16,7 +15,7 @@ on:
       publish:
         description: "Publish the complete 25.12 userspace APK repository (main only)"
         type: boolean
-        default: false
+        default: true
         required: false
 
 permissions:
