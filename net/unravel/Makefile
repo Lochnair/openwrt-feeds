@@ -5,18 +5,18 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=unravel
-PKG_VERSION:=0.4.1
-PKG_RELEASE:=3
+PKG_VERSION:=0.5.0-rc1
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/Lochnair/unravel
-PKG_SOURCE_VERSION:=33169182be8cc8ca9d3c7edb4791b1407641abe3
+PKG_SOURCE_VERSION:=5a13d298d87edae7243b69dc7d6ea8fc5b9cfba2
 
 PKG_MAINTAINER:=Nils Andreas Svee <me@lochnair.net>
 PKG_LICENSE:=MPL
 
 PKG_BUILD_DEPENDS:=rust/host
-RUST_PKG_FEATURES:=uci
+RUST_PKG_FEATURES:=irtt,uci
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
@@ -45,8 +45,8 @@ define Package/unravel/install
 	$(INSTALL_DIR) $(1)/etc/config $(1)/etc/unravel $(1)/etc/init.d $(1)/usr/sbin $(1)/usr/lib/unravel
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/unravel $(1)/usr/sbin/unravel
 	$(INSTALL_CONF) \
-		./files/reflectors-icmp.csv \
-		$(1)/etc/unravel/reflectors-icmp.csv
+		$(PKG_BUILD_DIR)/reflectors.csv \
+		$(1)/etc/unravel/reflectors.csv
 	$(INSTALL_BIN) \
 		./files/configure.sh \
 		$(1)/usr/lib/unravel/

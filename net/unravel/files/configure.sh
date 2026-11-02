@@ -1,5 +1,5 @@
 #!/bin/sh
-#   configure.sh: configures /etc/config/sqm-autorate-rust
+#   configure.sh: configures /etc/config/unravel
 #
 #   Copyright (C) 2022-2024
 #       Charles Corrigan mailto:chas-iot@runegate.org (github @chas-iot)
@@ -11,7 +11,14 @@
 
 # shellcheck disable=SC3045
 
-SERVICE_NAME="sqm-autorate-rust"
+is_number() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+SERVICE_NAME="unravel"
 CONFIG_FILE="/etc/config/${SERVICE_NAME}"
 CONFIGURE_SCRIPT="/usr/lib/${SERVICE_NAME}/configure.sh"
 
@@ -38,7 +45,7 @@ SIGINT..."
 trap "handle_ctlc" 2
 
 echo "
->> Starting the 'sqm-autorate-rust' configuration script.
+>> Starting the 'unravel' configuration script.
 
 "
 
@@ -53,7 +60,7 @@ read -r -p "You may interrupt this script and re-run later. To re-run, at the ro
 prompt, type '${CONFIGURE_SCRIPT}'
 
 Press return, or type y or yes if you want guided assistance to set up a ready
-   to run configuration file for 'sqm-autorate-rust' [Y/n]: " do_config
+   to run configuration file for 'unravel' [Y/n]: " do_config
 do_config=$(echo "${do_config}" | awk '{ print tolower($0) }')
 if [ -z "${do_config}" ] || [ "${do_config}" = "y" ] || [ "${do_config}" = "yes" ]; then
     # shellcheck disable=SC1091
@@ -68,14 +75,11 @@ if [ -z "${do_config}" ] || [ "${do_config}" = "y" ] || [ "${do_config}" = "yes"
     SETTINGS_UPLOAD_SPEED=$(uci -q get "${SERVICE_NAME}.@network[0].upload_base_kbits")
     SETTINGS_DOWNLOAD_SPEED=$(uci -q get "${SERVICE_NAME}.@network[0].download_base_kbits")
     SETTINGS_LOG_LEVEL=$(uci -q get "${SERVICE_NAME}.@output[0].log_level")
-    SETTINGS_USE_SYSLOG=$(uci -q get "${SERVICE_NAME}.@output[0].use_syslog")
-    SETTINGS_OBS_ENABLED=$(uci -q get "${SERVICE_NAME}.@observability[0].enabled")
     SETTINGS_OBS_PROTOCOL=$(uci -q get "${SERVICE_NAME}.@observability[0].protocol")
     SETTINGS_OBS_HOST=$(uci -q get "${SERVICE_NAME}.@observability[0].host")
     SETTINGS_OBS_PORT=$(uci -q get "${SERVICE_NAME}.@observability[0].port")
     SETTINGS_MEASUREMENT_TYPE=$(uci -q get "${SERVICE_NAME}.@advanced_settings[0].measurement_type")
-    SETTINGS_NUM_REFLECTORS=$(uci -q get "${SERVICE_NAME}.@advanced_settings[0].num_reflectors")
-    SETTINGS_DRY_RUN=$(uci -q get "${SERVICE_NAME}.@advanced_settings[0].dry_run")
+    SETTINGS_NUM_REFLECTORS=$(uci -q get "${SERVICE_NAME}.@reflectors[0].num_reflectors")
 
     INPUT=Y
     while [ $INPUT = "Y" ]; do
@@ -165,7 +169,7 @@ The speed should be input with just digits and no punctuation
 "
         BAD=Y
         # shellcheck disable=SC3010
-        if [ -n "${SETTINGS_UPLOAD_SPEED}" ] && [[ $SETTINGS_UPLOAD_SPEED =~ ^[0-9]+$ ]]; then
+        if [ -n "${SETTINGS_UPLOAD_SPEED}" ] && is_number "$SETTINGS_UPLOAD_SPEED"; then
             DEFAULT=" [${SETTINGS_UPLOAD_SPEED}]"
         else
             DEFAULT=""
@@ -176,7 +180,7 @@ The speed should be input with just digits and no punctuation
             if [ -n "${SETTINGS_UPLOAD_SPEED}" ] && [ -z "${UPLOAD_SPEED}" ]; then
                 UPLOAD_SPEED=$SETTINGS_UPLOAD_SPEED
                 BAD=N
-            elif [[ $UPLOAD_SPEED =~ ^[0-9]+$ ]]; then
+            elif is_number "$UPLOAD_SPEED"; then
                 BAD=N
             else
                 echo "
@@ -187,7 +191,7 @@ please input digits only"
         BAD=Y
         while [ $BAD = "Y" ]; do
             # shellcheck disable=SC3010
-            if [ -n "${SETTINGS_DOWNLOAD_SPEED}" ] && [[ $SETTINGS_DOWNLOAD_SPEED =~ ^[0-9]+$ ]]; then
+            if [ -n "${SETTINGS_DOWNLOAD_SPEED}" ] && is_number "$SETTINGS_DOWNLOAD_SPEED"; then
                 DEFAULT=" [${SETTINGS_DOWNLOAD_SPEED}]"
             else
                 DEFAULT=""
@@ -197,7 +201,7 @@ please input digits only"
             if [ -n "${SETTINGS_DOWNLOAD_SPEED}" ] && [ -z "${DOWNLOAD_SPEED}" ]; then
                 DOWNLOAD_SPEED=$SETTINGS_DOWNLOAD_SPEED
                 BAD=N
-            elif [[ $DOWNLOAD_SPEED =~ ^[0-9]+$ ]]; then
+            elif is_number "$DOWNLOAD_SPEED"; then
                 BAD=N
             else
                 echo "
@@ -237,7 +241,7 @@ will be re-displayed for confirmation
             # shellcheck disable=SC3010
             if [ -z "${OVERRIDE_UPLOAD}" ]; then
                 BAD=N
-            elif [[ $OVERRIDE_UPLOAD =~ ^[0-9]+$ ]]; then
+            elif is_number "$OVERRIDE_UPLOAD"; then
                 if [ "$OVERRIDE_UPLOAD" -lt "$UPLOAD_SPEED" ]; then
                     if [ "$OVERRIDE_UPLOAD" -ne $UPLOAD_MINIMUM ]; then
                         UPLOAD_PERCENT=$((OVERRIDE_UPLOAD * 100 / UPLOAD_SPEED))
@@ -295,7 +299,7 @@ please input digits only and ensure that the minimum is less than the original"
             # shellcheck disable=SC3010
             if [ -z "${OVERRIDE_DOWNLOAD}" ]; then
                 BAD=N
-            elif [[ $OVERRIDE_DOWNLOAD =~ ^[0-9]+$ ]]; then
+            elif is_number "$OVERRIDE_DOWNLOAD"; then
                 if [ "$OVERRIDE_DOWNLOAD" -lt "$DOWNLOAD_SPEED" ]; then
                     if [ "$OVERRIDE_DOWNLOAD" -ne $DOWNLOAD_MINIMUM ]; then
                         DOWNLOAD_PERCENT=$((OVERRIDE_DOWNLOAD * 100 / DOWNLOAD_SPEED))
@@ -333,9 +337,8 @@ please input digits only and ensure that the minimum is less than the original"
         GOOD=N
         while [ $GOOD = "N" ]; do
             read -r -p "
-sqm-autorate-rust logging uses storage on the router
+unravel logging uses storage on the router
 Choose one of the following log levels
-- FATAL     - minimal
 - ERROR     - minimal
 - WARN      - minimal, recommended
 - INFO      - typically a very few Kb per day showing settings changes, however
@@ -348,8 +351,7 @@ Type in one of the log levels, or press return to accept [${SETTINGS_LOG_LEVEL:-
             if [ -z "${LOG_LEVEL}" ]; then
                 LOG_LEVEL="${SETTINGS_LOG_LEVEL:-WARN}"
                 GOOD=Y
-            elif [ "${LOG_LEVEL}" = "FATAL" ] ||
-                [ "${LOG_LEVEL}" = "ERROR" ] ||
+            elif [ "${LOG_LEVEL}" = "ERROR" ] ||
                 [ "${LOG_LEVEL}" = "WARN" ] ||
                 [ "${LOG_LEVEL}" = "INFO" ] ||
                 [ "${LOG_LEVEL}" = "DEBUG" ] ||
@@ -359,7 +361,7 @@ Type in one of the log levels, or press return to accept [${SETTINGS_LOG_LEVEL:-
         done
 
         read -r -p "
-sqm-autorate-rust can output log entries to your system log (syslog).
+unravel can output log entries to your system log (syslog).
 
 Type y or yes to choose to output log entries to syslog [y/N]: " SYS_LOG
         SYS_LOG=$(echo "${SYS_LOG}" | awk '{ print tolower($0) }')
@@ -370,7 +372,7 @@ Type y or yes to choose to output log entries to syslog [y/N]: " SYS_LOG
         fi
 
         read -r -p "
-sqm-autorate-rust can output statistics that may be analysed with Julia scripts
+unravel can output statistics that may be analysed with Julia scripts
 ( https://github.com/sqm-autorate/sqm-autorate/tree/main#graphical-analysis ),
 spreadsheets, or other statistical software.
 The statistics use about 12 Mb of storage per day on the router.
@@ -389,9 +391,10 @@ Type y or yes to choose to output the statistics [y/N]: " STATS
         GOOD=N
         while [ $GOOD = "N" ]; do
             read -r -p "
-Choose the measurement method sqm-autorate-rust will use to estimate one-way delay:
-- icmp-timestamps  - uses ICMP timestamp requests; most accurate, recommended
-- icmp             - uses ICMP echo (ping); splits RTT 50/50, less accurate
+Choose the measurement method unRAVEL will use:
+- icmp-timestamps  - measures one-way delay with ICMP timestamps
+- icmp-echo        - estimates each direction as half the ping RTT
+- irtt             - measures one-way delay using IRTT servers
 
 Type in one of the above, or press return to accept [${SETTINGS_MEASUREMENT_TYPE:-icmp-timestamps}]: " MEASUREMENT_TYPE
             MEASUREMENT_TYPE=$(echo "${MEASUREMENT_TYPE}" | awk '{ print tolower($0) }')
@@ -399,11 +402,12 @@ Type in one of the above, or press return to accept [${SETTINGS_MEASUREMENT_TYPE
                 MEASUREMENT_TYPE="${SETTINGS_MEASUREMENT_TYPE:-icmp-timestamps}"
                 GOOD=Y
             elif [ "${MEASUREMENT_TYPE}" = "icmp-timestamps" ] ||
-                [ "${MEASUREMENT_TYPE}" = "icmp" ]; then
+                [ "${MEASUREMENT_TYPE}" = "icmp-echo" ] ||
+                [ "${MEASUREMENT_TYPE}" = "irtt" ]; then
                 GOOD=Y
             else
                 echo "
-please enter 'icmp-timestamps' or 'icmp'"
+please enter 'icmp-timestamps', 'icmp-echo' or 'irtt'"
             fi
         done
 
@@ -418,7 +422,7 @@ Number of reflectors to use for latency measurement (3-20, default ${SETTINGS_NU
             if [ -z "${NUM_REFLECTORS}" ]; then
                 NUM_REFLECTORS="${SETTINGS_NUM_REFLECTORS:-5}"
                 BAD=N
-            elif [[ $NUM_REFLECTORS =~ ^[0-9]+$ ]] && [ "$NUM_REFLECTORS" -ge 3 ] && [ "$NUM_REFLECTORS" -le 20 ]; then
+            elif is_number "$NUM_REFLECTORS" && [ "$NUM_REFLECTORS" -ge 3 ] && [ "$NUM_REFLECTORS" -le 20 ]; then
                 BAD=N
             else
                 echo "
@@ -430,7 +434,7 @@ please input a number between 3 and 20"
         # DRY RUN
         # =====================================================================
         read -r -p "
-Dry-run / monitoring mode: sqm-autorate-rust will measure latency and calculate
+Dry-run / monitoring mode: unravel will measure latency and calculate
 rate adjustments but will NOT actually change qdisc rates. Useful for
 observing behaviour before committing.
 
@@ -446,7 +450,7 @@ Type y or yes to enable dry-run mode [y/N]: " DRY_RUN_INPUT
         # OBSERVABILITY
         # =====================================================================
         read -r -p "
-sqm-autorate-rust can export metrics in InfluxDB line protocol to a remote
+unravel can export metrics in InfluxDB line protocol to a remote
 collector (e.g. Telegraf, InfluxDB, Grafana Agent). This is optional.
 
 Type y or yes to configure observability [y/N]: " OBS_INPUT
@@ -497,7 +501,7 @@ Collector port [${SETTINGS_OBS_PORT:-8089}]: " OBS_PORT
                 if [ -z "${OBS_PORT}" ]; then
                     OBS_PORT="${SETTINGS_OBS_PORT:-8089}"
                     BAD=N
-                elif [[ $OBS_PORT =~ ^[0-9]+$ ]] && [ "$OBS_PORT" -ge 1 ] && [ "$OBS_PORT" -le 65535 ]; then
+                elif is_number "$OBS_PORT" && [ "$OBS_PORT" -ge 1 ] && [ "$OBS_PORT" -le 65535 ]; then
                     BAD=N
                 else
                     echo "
@@ -559,7 +563,7 @@ Which metrics should be exported? (press return to accept defaults)
 /etc/init.d/${SERVICE_NAME} - not found or not executable, skipping (auto)start"
         else
             read -r -p "
-Do you want to automatically start 'sqm-autorate-rust' at reboot [Y/n]: " STARTAUTO
+Do you want to automatically start 'unravel' at reboot [Y/n]: " STARTAUTO
             STARTAUTO=$(echo "${STARTAUTO}" | awk '{ print tolower($0) }')
             if [ -z "${STARTAUTO}" ] || [ "${STARTAUTO}" = "y" ] || [ "${STARTAUTO}" = "yes" ]; then
                 START_AUTO=Yes
@@ -568,7 +572,7 @@ Do you want to automatically start 'sqm-autorate-rust' at reboot [Y/n]: " STARTA
             fi
 
             read -r -p "
-Do you want to start 'sqm-autorate-rust' now [Y/n]: " STARTNOW
+Do you want to start 'unravel' now [Y/n]: " STARTNOW
             STARTNOW=$(echo "${STARTNOW}" | awk '{ print tolower($0) }')
             if [ -z "${STARTNOW}" ] || [ "${STARTNOW}" = "y" ] || [ "${STARTNOW}" = "yes" ]; then
                 START_NOW=Yes
@@ -666,7 +670,7 @@ Note that the above forum requires registration before posting."
     uci set "${SERVICE_NAME}.@output[0].suppress_statistics=${SUPPRESS_STATISTICS}"
 
     uci set "${SERVICE_NAME}.@advanced_settings[0].measurement_type=${MEASUREMENT_TYPE}"
-    uci set "${SERVICE_NAME}.@advanced_settings[0].num_reflectors=${NUM_REFLECTORS}"
+    uci set "${SERVICE_NAME}.@reflectors[0].num_reflectors=${NUM_REFLECTORS}"
     uci set "${SERVICE_NAME}.@advanced_settings[0].dry_run=${DRY_RUN}"
 
     uci set "${SERVICE_NAME}.@observability[0].enabled=${OBS_ENABLED}"
@@ -686,12 +690,12 @@ Note that the above forum requires registration before posting."
     if [ -x "/etc/init.d/${SERVICE_NAME}" ]; then
         if [ "${START_AUTO}" = "Yes" ]; then
             echo "
-Enabling 'sqm-autorate-rust' service"
+Enabling 'unravel' service"
             "/etc/init.d/${SERVICE_NAME}" enable
         fi
         if [ "${START_NOW}" = "Yes" ]; then
             echo "
-Starting 'sqm-autorate-rust' service"
+Starting 'unravel' service"
             if "/etc/init.d/${SERVICE_NAME}" running; then
                 "/etc/init.d/${SERVICE_NAME}" stop
                 sleep 3
