@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=unravel
-PKG_VERSION:=0.5.0-rc1
+PKG_VERSION:=0.5.0_rc1
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
