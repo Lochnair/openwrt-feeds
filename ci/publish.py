@@ -306,9 +306,15 @@ def main():
     parser.add_argument('--artifacts', required=True, type=Path)
     parser.add_argument('--feed', default='.', type=Path)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--identity', type=Path,
+                        help='Verified identity of a complete source build for publication retries')
     args = parser.parse_args()
     identity = {'commit': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
                 'run_attempt': os.environ['GITHUB_RUN_ATTEMPT']}
+    if args.identity is not None:
+        identity = json.loads(args.identity.read_text())
+        if set(identity) != {'commit', 'run_id', 'run_attempt'}:
+            raise ValueError('Invalid source build identity')
     repositories = validate_artifacts(json.loads(args.matrix.read_text()), args.artifacts.resolve(),
                                       args.feed.resolve(), identity)
     fingerprint = os.environ['APK_PUBLIC_KEY_SHA256']

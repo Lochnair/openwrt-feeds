@@ -1,0 +1,119 @@
+name: retry publication
+run-name: Retry publication from run ${{ inputs.build_run_id }} (check only=${{ inputs.check_only }})
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Completed full build run whose signed snapshot should be published"
+        type: string
+        required: true
+      check_only:
+        description: "Only test Storage authentication; no uploads"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'Lochnair/openwrt-feeds' }}
+    runs-on: ubuntu-latest
+    environment: apk-publication
+    outputs:
+      image: ${{ steps.source.outputs.image }}
+      commit: ${{ steps.source.outputs.commit }}
+      identity: ${{ steps.source.outputs.identity }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check Storage authentication without writes
+        env:
+          BUNNY_STORAGE_ENDPOINT: ${{ vars.BUNNY_STORAGE_ENDPOINT }}
+          BUNNY_STORAGE_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_ACCESS_KEY }}
+          PYTHONPATH: ci
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from publish import Bunny
+          storage = Bunny(os.environ['BUNNY_STORAGE_ENDPOINT'], os.environ['BUNNY_STORAGE_ACCESS_KEY'])
+          listing = json.loads(storage.request('GET', storage.base, storage.access_key))
+          if not isinstance(listing, list):
+              raise ValueError('Storage did not return a directory listing')
+          print('Storage authentication succeeded; no files changed.')
+          PY
+      - name: Inspect the full source build
+        if: ${{ !inputs.check_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          case "$BUILD_RUN_ID" in ''|*[!0-9]*) exit 1;; esac
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > source-run.json
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/jobs?per_page=100" > source-jobs.json
+      - name: Download the original expected matrix
+        if: ${{ !inputs.check_only }}
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          name: publication-matrix
+          path: expected
+      - name: Validate source run and select its SDK
+        if: ${{ !inputs.check_only }}
+        id: source
+        run: python3 ci/retry.py
+
+  publish:
+    needs: inspect
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'Lochnair/openwrt-feeds' && !inputs.check_only }}
+    runs-on: ubuntu-latest
+    environment: apk-publication
+    concurrency:
+      group: openwrt-apk-publication-25.12
+      cancel-in-progress: false
+    container:
+      image: ${{ needs.inspect.outputs.image }}
+      options: --user root
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out the original package recipes for hash verification
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.inspect.outputs.commit }}
+          path: source-feed
+      - name: Download the original expected matrix
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          name: publication-matrix
+          path: expected
+      - name: Download all original userspace reports and packages
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          pattern: repository-*
+          merge-multiple: false
+          path: artifacts
+      - name: Download the complete signed snapshot
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          name: signed-publication
+          path: publication
+      - name: Record the verified source identity
+        env:
+          BUILD_IDENTITY: ${{ needs.inspect.outputs.identity }}
+        run: python3 -c 'import os; from pathlib import Path; Path("identity.json").write_text(os.environ["BUILD_IDENTITY"])'
+      - name: Revalidate the complete snapshot and publish packages before indexes
+        env:
+          APK_PUBLIC_KEY_SHA256: ${{ vars.APK_PUBLIC_KEY_SHA256 }}
+          BUNNY_STORAGE_ENDPOINT: ${{ vars.BUNNY_STORAGE_ENDPOINT }}
+          BUNNY_STORAGE_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_ACCESS_KEY }}
+        run: >-
+          python3 ci/publish.py deploy --apk /builder/staging_dir/host/bin/apk
+          --matrix expected/publication-matrix.json --artifacts artifacts --output publication
+          --feed source-feed --identity identity.json
