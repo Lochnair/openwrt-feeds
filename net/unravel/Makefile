@@ -24,7 +24,7 @@ include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 CARGO_PKG_ARGS += --no-default-features
 
 CARGO_PKG_VARS += UCI_DIR=$(STAGING_DIR)/usr \
-    BINDGEN_TARGET=$(RUSTC_TARGET_ARCH) \
+    BINDGEN_TARGET=$(subst riscv64gc,riscv64,$(RUSTC_TARGET_ARCH)) \
     LIBCLANG_PATH=$(STAGING_DIR_HOST)/llvm-bpf/lib \
     BINDGEN_EXTRA_CLANG_ARGS="-I$(STAGING_DIR)/usr/include --sysroot=$(TOOLCHAIN_DIR)"
 
